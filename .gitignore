@@ -1,0 +1,12 @@
+# Build
+android/.gradle/
+android/build/
+android/**/build/
+android/local.properties
+
+# IDE
+.idea/
+*.iml
+
+# OS / tooling
+.gradle-dist/
