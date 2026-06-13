@@ -18,6 +18,6 @@ object Config {
     // Следование (используется и на часах; здесь — для справки/тестов)
     const val OFFROUTE_M = 40.0
 
-    // UUID watch-аппа — единый источник истины: watch/manifest.xml.
-    const val WATCH_APP_UUID = "00000000-0000-0000-0000-000000000000" // TODO: sync with watch/manifest.xml
+    // UUID watch-аппа — единый источник истины: watch/manifest.xml (там без дефисов).
+    const val WATCH_APP_UUID = "ff29cc6f-bfa1-4e06-8ac3-04f39e8aa45b"
 }

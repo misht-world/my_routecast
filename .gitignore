@@ -10,3 +10,8 @@ android/local.properties
 
 # OS / tooling
 .gradle-dist/
+
+# Connect IQ
+watch/bin/
+watch/developer_key.pem
+watch/developer_key.der

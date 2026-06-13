@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<!-- UUID watch-аппа — ЕДИНЫЙ ИСТОЧНИК ИСТИНЫ (CLAUDE.md). Дублируется в android Config. -->
+<iq:manifest xmlns:iq="http://www.garmin.com/xml/connectiq" version="3">
+    <iq:application
+        entry="RoutecastApp"
+        id="ff29cc6fbfa14e068ac304f39e8aa45b"
+        launcherIcon="@Drawables.LauncherIcon"
+        name="@Strings.AppName"
+        type="widget"
+        minApiLevel="3.2.0">
+        <iq:products>
+            <iq:product id="instinct3solar45mm"/>
+        </iq:products>
+        <iq:permissions>
+            <iq:uses-permission id="Communications"/>
+        </iq:permissions>
+        <iq:languages>
+            <iq:language>eng</iq:language>
+        </iq:languages>
+    </iq:application>
+</iq:manifest>
