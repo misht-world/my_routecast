@@ -25,6 +25,20 @@ class NavDelegate extends WatchUi.BehaviorDelegate {
         return true;
     }
 
+    // MENU — встроенный демо-прогон (для проверки без GPS-плеера симулятора)
+    function onMenu() {
+        ns.demo = !ns.demo;
+        if (ns.demo) {
+            ns.demoDist = 0.0;
+            ns.arrived = false;
+            ns.vibedArrival = false;
+            ns.warnIdx = -1;
+            ns.nowIdx = -1;
+        }
+        WatchUi.requestUpdate();
+        return true;
+    }
+
     function onBack() {
         // На экране «Прибытие» — сразу выход с очисткой.
         if (ns.arrived) {

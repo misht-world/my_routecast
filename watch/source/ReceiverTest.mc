@@ -4,8 +4,13 @@ using Toybox.Test;
 
 (:test)
 function assemblesMockRoute(logger) {
+    // Фиксированная последовательность (не зависит от MockFeeder/демо-мока).
     var r = new RouteReceiver();
-    MockFeeder.feed(r);
+    r.handle({ "t" => "H", "v" => 1, "np" => 5, "nc" => 2, "nm" => 2, "name" => "t" });
+    r.handle({ "t" => "L", "s" => 0, "p" => [[50000000, 30000000], [100, 100], [100, 100]] });
+    r.handle({ "t" => "L", "s" => 1, "p" => [[100, 100], [100, 100]] });
+    r.handle({ "t" => "M", "m" => [[2, -2, 40], [4, 9, 80]] });
+    r.handle({ "t" => "E" });
 
     Test.assertEqual(r.state, :ready);
     Test.assertEqual(r.points.size(), 5);

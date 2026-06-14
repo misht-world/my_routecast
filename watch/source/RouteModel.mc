@@ -85,14 +85,31 @@ class RouteModel {
         return [bestSeg, bestT, bestD, bestTrav];
     }
 
-    // Первый манёвр с distM > traveledM (с небольшим допуском).
+    // Дистанция манёвра — из cum[idx] самой модели (надёжнее транслируемого dist).
+    function maneuverDistM(m) {
+        var idx = m[0];
+        if (idx < 0) { idx = 0; }
+        if (idx > cum.size() - 1) { idx = cum.size() - 1; }
+        return cum[idx];
+    }
+
+    // Первый манёвр впереди текущего traveledM (с небольшим допуском).
     function nextManeuver(traveledM) {
         for (var i = 0; i < maneuvers.size(); i++) {
-            if (maneuvers[i][2] > traveledM - 2.0) {
+            if (maneuverDistM(maneuvers[i]) > traveledM - 2.0) {
                 return maneuvers[i];
             }
         }
         return maneuvers.size() > 0 ? maneuvers[maneuvers.size() - 1] : null;
+    }
+
+    // Курс (рад, от севера) на дистанции distM — для демо-движения.
+    function headingAtDist(distM) {
+        var a = pointAtDist(distM);
+        var b = pointAtDist(distM + 5.0);
+        var pa = toXY(a[0], a[1]);
+        var pb = toXY(b[0], b[1]);
+        return Math.atan2(pb[0] - pa[0], pb[1] - pa[1]); // atan2(east, north)
     }
 
     // Начальный пеленг маршрута (рад, от севера по часовой) — fallback курса без GPS.

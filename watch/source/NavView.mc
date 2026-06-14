@@ -3,6 +3,7 @@ using Toybox.Graphics;
 using Toybox.Math;
 using Toybox.Attention;
 using Toybox.System;
+using Toybox.Timer;
 
 // Отрисовка навигации heading-up (SPEC §5.4–5.5), монохром, один тон.
 class NavView extends WatchUi.View {
@@ -13,12 +14,34 @@ class NavView extends WatchUi.View {
     const TURN_NOW_M = 10.0;
     const OFFROUTE_M = 40.0;
     const WARN_HOLD = 2000; // мс
+    const DEMO_STEP = 5.0;  // м за тик демо
 
     var ns;
+    var timer;
 
     function initialize(navState) {
         View.initialize();
         ns = navState;
+    }
+
+    function onShow() {
+        timer = new Timer.Timer();
+        timer.start(method(:onTick), 150, true);
+    }
+
+    function onHide() {
+        if (timer != null) { timer.stop(); }
+    }
+
+    // Демо-движение по маршруту (когда нет GPS-плеера).
+    function onTick() as Void {
+        if (ns.demo && !ns.paused && !ns.arrived) {
+            ns.demoDist += DEMO_STEP;
+            var p = ns.route.pointAtDist(ns.demoDist);
+            var hdg = ns.route.headingAtDist(ns.demoDist);
+            ns.setFix(p[0], p[1], hdg);
+            WatchUi.requestUpdate();
+        }
     }
 
     function onUpdate(dc) {
@@ -39,7 +62,6 @@ class NavView extends WatchUi.View {
         var rem = route.totalM() - trav;
         if (rem < 0.0) { rem = 0.0; }
 
-        // прибытие
         if (!ns.arrived && route.totalM() > ARRIVE_M && rem <= ARRIVE_M) {
             ns.arrived = true;
         }
@@ -61,9 +83,7 @@ class NavView extends WatchUi.View {
         var meXY = route.toXY(ns.meLatMicro, ns.meLonMicro);
         var pxPerM = meY.toFloat() / ns.viewMeters();
 
-        // точка-проекция «я» на маршрут (граница пройдено/осталось)
         var pp = route.pointAtDist(trav);
-
         var ppS = projectPt(pp, meXY, sinH, cosH, pxPerM, cx, meY);
 
         // пройденное — тонкое
@@ -100,9 +120,10 @@ class NavView extends WatchUi.View {
             dc.drawText(cx, 2, Graphics.FONT_XTINY, "ПАУЗА", Graphics.TEXT_JUSTIFY_CENTER);
         }
 
-        // следующий манёвр + вибро-логика
+        // следующий манёвр + вибро
         var nm = route.nextManeuver(trav);
-        var dTo = (nm != null) ? (nm[2] - trav) : 1.0e9;
+        var manDist = (nm != null) ? route.maneuverDistM(nm) : 1.0e9;
+        var dTo = manDist - trav;
         if (dTo < 0.0) { dTo = 0.0; }
         var isFinish = (nm != null) && (nm[1] == 9);
         var manIdx = (nm != null) ? nm[0] : -1;
@@ -111,26 +132,29 @@ class NavView extends WatchUi.View {
             if (ns.warnIdx != manIdx) {
                 ns.warnIdx = manIdx;
                 ns.warnStart = System.getTimer();
-                vibeOnce(); // анонс
+                vibeOnce();
             }
         }
         if (!offRoute && !isFinish && nm != null && dTo <= TURN_NOW_M && ns.nowIdx != manIdx) {
             ns.nowIdx = manIdx;
-            vibeNow(); // двойное на самом повороте
+            vibeNow();
         }
 
-        // нижнее поле NNN/YY
-        dc.drawText(cx, H - 30, Graphics.FONT_MEDIUM,
+        // нижнее поле NNN/YY + подсказка демо
+        dc.drawText(cx, H - 34, Graphics.FONT_MEDIUM,
             fmtDist(dTo) + "/" + (rem / 1000.0).format("%.1f"),
             Graphics.TEXT_JUSTIFY_CENTER);
+        if (!ns.demo) {
+            dc.drawText(cx, H - 14, Graphics.FONT_XTINY, "MENU = демо", Graphics.TEXT_JUSTIFY_CENTER);
+        }
 
-        // субэкран-пеленг (без рамки): off-route -> на ближайшую точку маршрута
+        // субэкран — компасная игла (без рамки); off-route -> назад на линию
         var bearingTrav = offRoute ? trav : (trav + LOOKAHEAD);
-        drawSubBearing(dc, route, meXY, sinH, cosH, pxPerM, cx, meY, bearingTrav, offRoute);
+        drawNeedle(dc, route, meXY, sinH, cosH, pxPerM, cx, meY, bearingTrav);
 
         // оверлеи
         if (offRoute) {
-            dc.drawText(cx, 16, Graphics.FONT_SMALL, "OFF ROUTE", Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(cx, H - 56, Graphics.FONT_SMALL, "OFF ROUTE", Graphics.TEXT_JUSTIFY_CENTER);
         } else if (nm != null) {
             var lowBound = isFinish ? ARRIVE_M : TURN_NOW_M;
             var holding = (ns.warnIdx == manIdx) && ((System.getTimer() - ns.warnStart) < WARN_HOLD);
@@ -158,8 +182,8 @@ class NavView extends WatchUi.View {
         return [cx + cross * pxPerM, meY - along * pxPerM];
     }
 
-    // субэкран: маска карты (без рамки — она физическая) + стрелка-пеленг
-    function drawSubBearing(dc, route, meXY, sinH, cosH, pxPerM, cx, meY, atDist, off) {
+    // субэкран: маска карты (рамка физическая) + игла-пеленг в виде компасной стрелки (ромб)
+    function drawNeedle(dc, route, meXY, sinH, cosH, pxPerM, cx, meY, atDist) {
         var scx = 144;
         var scy = 31;
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
@@ -171,50 +195,53 @@ class NavView extends WatchUi.View {
         var ang = Math.atan2(ts[1] - meY, ts[0] - cx);
         var ca = Math.cos(ang);
         var sa = Math.sin(ang);
-        var len = 17;
-        var tipX = scx + ca * len;
-        var tipY = scy + sa * len;
-        dc.setPenWidth(3);
-        dc.drawLine(scx - ca * len, scy - sa * len, tipX, tipY);
         var px = -sa;
         var py = ca;
-        var hl = 9;
-        var hw = 6;
-        var bx = tipX - ca * hl;
-        var by = tipY - sa * hl;
-        dc.fillPolygon([[tipX, tipY], [bx + px * hw, by + py * hw], [bx - px * hw, by - py * hw]]);
+        var tipX = scx + ca * 19;
+        var tipY = scy + sa * 19;
+        var tailX = scx - ca * 12;
+        var tailY = scy - sa * 12;
+        var wHalf = 6;
+        dc.fillPolygon([
+            [tipX, tipY],
+            [scx + px * wHalf, scy + py * wHalf],
+            [tailX, tailY],
+            [scx - px * wHalf, scy - py * wHalf]
+        ]);
     }
 
-    // полноэкранный анонс поворота/финиша (статичный, без метража — SPEC §5.4)
+    // полноэкранный анонс поворота/финиша; слово СНИЗУ (вверху перекрывает субэкран)
     function drawTurnWarning(dc, cx, W, H, isFinish, bendRad) {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.fillRectangle(0, 0, W, H);
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        var cy = (H * 0.5).toNumber();
+        var cy = (H * 0.44).toNumber();
         if (isFinish) {
-            dc.drawText(cx, cy - 58, Graphics.FONT_SMALL, "финиш", Graphics.TEXT_JUSTIFY_CENTER);
-            dc.setPenWidth(5);
-            dc.drawCircle(cx, cy + 6, 22);
-            dc.fillCircle(cx, cy + 6, 8);
+            dc.setPenWidth(6);
+            dc.drawCircle(cx, cy, 26);
+            dc.fillCircle(cx, cy, 9);
+            dc.drawText(cx, H - 34, Graphics.FONT_MEDIUM, "финиш", Graphics.TEXT_JUSTIFY_CENTER);
         } else {
-            dc.drawText(cx, cy - 64, Graphics.FONT_SMALL, turnWord(bendRad), Graphics.TEXT_JUSTIFY_CENTER);
-            drawTurnArrow(dc, cx, cy + 6, bendRad, 1.5);
+            drawTurnArrow(dc, cx, cy, bendRad);
+            dc.drawText(cx, H - 34, Graphics.FONT_MEDIUM, turnWord(bendRad), Graphics.TEXT_JUSTIFY_CENTER);
         }
     }
 
-    function drawTurnArrow(dc, cx, cy, bendRad, scale) {
-        var armAngle = -Math.PI / 2 - bendRad; // + влево / − вправо, экран y вниз
-        var sh = (26 * scale).toNumber();
-        var arm = 30 * scale;
-        var ex = cx + Math.cos(armAngle) * arm;
-        var ey = cy + Math.sin(armAngle) * arm;
-        dc.setPenWidth((6 * scale).toNumber());
-        dc.drawLine(cx, cy + sh, cx, cy);
-        dc.drawLine(cx, cy, ex, ey);
+    // Жирная гнутая стрелка поворота (filled): древко вверх + плечо по углу + крупный наконечник.
+    function drawTurnArrow(dc, cx, cy, bendRad) {
+        var armAngle = -Math.PI / 2 - bendRad; // + влево / − вправо (экран y вниз)
+        var sh = 30;   // длина древка вниз
+        var arm = 34;  // длина плеча
         var ca = Math.cos(armAngle);
         var sa = Math.sin(armAngle);
-        var hl = 11 * scale;
-        var hw = 8 * scale;
+        var ex = cx + ca * arm;
+        var ey = cy + sa * arm;
+        dc.setPenWidth(9);
+        dc.drawLine(cx, cy + sh, cx, cy);
+        dc.drawLine(cx, cy, ex, ey);
+        // наконечник
+        var hl = 17;
+        var hw = 12;
         var bx = ex - ca * hl;
         var by = ey - sa * hl;
         var px = -sa;

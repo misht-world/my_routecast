@@ -1,16 +1,34 @@
-// Канонические сообщения протокола для проверки сборки в симуляторе (Gate 2).
-// Имитирует H -> L0 -> L1 -> M -> E. Первая точка чанка 0 — абсолютная, остальные — дельты.
+// Канон сообщений протокола для проверки в симуляторе (Gate 2).
+// Маршрут с реальным поворотом налево (восток -> север), чтобы баннер/угол были осмысленны.
 class MockFeeder {
 
     static function feed(r) {
-        var startLat = 50000000; // 50.0° в микроградусах
-        var startLon = 30000000; // 30.0°
+        var lat = 50000000; // 50.0°
+        var lon = 30000000; // 30.0°
+        var prevLat = 0;
+        var prevLon = 0;
+        var first = true;
+        var p = [];
+        var i;
 
-        // 5 точек линии, 2 чанка (3 + 2), 2 манёвра
-        r.handle({ "t" => "H", "v" => 1, "np" => 5, "nc" => 2, "nm" => 2, "name" => "mock" });
-        r.handle({ "t" => "L", "s" => 0, "p" => [[startLat, startLon], [100, 100], [100, 100]] });
-        r.handle({ "t" => "L", "s" => 1, "p" => [[100, 100], [100, 100]] });
-        r.handle({ "t" => "M", "m" => [[2, -2, 40], [4, 9, 80]] });
+        // 8 точек на восток
+        for (i = 0; i < 8; i++) {
+            if (first) { p.add([lat, lon]); first = false; }
+            else { p.add([lat - prevLat, lon - prevLon]); }
+            prevLat = lat; prevLon = lon;
+            lon += 250;
+        }
+        // 8 точек на север (поворот налево)
+        for (i = 0; i < 8; i++) {
+            lat += 250;
+            p.add([lat - prevLat, lon - prevLon]);
+            prevLat = lat; prevLon = lon;
+        }
+
+        // 16 точек, 1 чанк, 2 манёвра (dist в M игнорируется — модель берёт cum[idx]).
+        r.handle({ "t" => "H", "v" => 1, "np" => 16, "nc" => 1, "nm" => 2, "name" => "mock" });
+        r.handle({ "t" => "L", "s" => 0, "p" => p });
+        r.handle({ "t" => "M", "m" => [[8, -2, 0], [15, 9, 0]] });
         r.handle({ "t" => "E" });
     }
 }
