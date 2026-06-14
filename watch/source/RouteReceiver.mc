@@ -110,11 +110,10 @@ class RouteReceiver {
     }
 
     function send(dict) {
-        // В симуляторе без телефона transmit может не пройти — для Gate 2 шаг 1 это норм.
-        try {
-            Communications.transmit(dict, null, new AckListener());
-        } catch (e) {
-        }
+        // Gate 2: телефона нет (мок подаём напрямую), поэтому ack только логируем —
+        // реальный Communications.transmit зависает в симуляторе без моста.
+        // TODO(Gate 3): включить transmit на adb-tethered связке телефон↔симулятор.
+        // Communications.transmit(dict, null, new AckListener());
     }
 
     function log(s) {
