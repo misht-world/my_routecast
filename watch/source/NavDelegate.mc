@@ -25,8 +25,18 @@ class NavDelegate extends WatchUi.BehaviorDelegate {
         return true;
     }
 
-    // MENU — встроенный демо-прогон (для проверки без GPS-плеера симулятора)
+    // START/MENU — встроенный демо-прогон (для проверки без GPS-плеера симулятора)
+    function onSelect() {
+        toggleDemo();
+        return true;
+    }
+
     function onMenu() {
+        toggleDemo();
+        return true;
+    }
+
+    function toggleDemo() {
         ns.demo = !ns.demo;
         if (ns.demo) {
             ns.demoDist = 0.0;
@@ -36,7 +46,6 @@ class NavDelegate extends WatchUi.BehaviorDelegate {
             ns.nowIdx = -1;
         }
         WatchUi.requestUpdate();
-        return true;
     }
 
     function onBack() {

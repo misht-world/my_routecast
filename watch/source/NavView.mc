@@ -145,7 +145,7 @@ class NavView extends WatchUi.View {
             fmtDist(dTo) + "/" + (rem / 1000.0).format("%.1f"),
             Graphics.TEXT_JUSTIFY_CENTER);
         if (!ns.demo) {
-            dc.drawText(cx, H - 14, Graphics.FONT_XTINY, "MENU = демо", Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(cx, H - 14, Graphics.FONT_XTINY, "START = демо", Graphics.TEXT_JUSTIFY_CENTER);
         }
 
         // субэкран — компасная игла (без рамки); off-route -> назад на линию
