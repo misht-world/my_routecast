@@ -20,4 +20,6 @@ object Config {
 
     // UUID watch-аппа — единый источник истины: watch/manifest.xml (там без дефисов).
     const val WATCH_APP_UUID = "ff29cc6f-bfa1-4e06-8ac3-04f39e8aa45b"
+    // Тот же UUID без дефисов — для IQApp/getApplicationInfo (как в manifest.xml).
+    const val WATCH_APP_ID_HEX = "ff29cc6fbfa14e068ac304f39e8aa45b"
 }

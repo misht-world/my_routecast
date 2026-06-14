@@ -26,5 +26,6 @@ android {
 
 dependencies {
     implementation("com.google.code.gson:gson:2.11.0")
+    implementation("com.garmin.connectiq:ciq-companion-app-sdk:2.4.0")
     testImplementation("junit:junit:4.13.2")
 }

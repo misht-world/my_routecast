@@ -19,6 +19,7 @@ import android.widget.TextView
 class MainActivity : Activity() {
 
     private lateinit var out: TextView
+    private var ciqLink: CiqLink? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,6 +32,10 @@ class MainActivity : Activity() {
             text = "Load sample"
             setOnClickListener { loadSample() }
         }
+        val connectBtn = Button(this).apply {
+            text = "Connect to watch (sim)"
+            setOnClickListener { connectWatch() }
+        }
         out = TextView(this).apply {
             textSize = 14f
             setLineSpacing(0f, 1.2f)
@@ -38,6 +43,7 @@ class MainActivity : Activity() {
         val scroll = ScrollView(this).apply { addView(out) }
 
         root.addView(sampleBtn)
+        root.addView(connectBtn)
         root.addView(scroll, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.MATCH_PARENT
@@ -47,6 +53,9 @@ class MainActivity : Activity() {
 
         // если открыли без файла — показать встроенный образец (удобно для теста)
         if (!handleIntent(intent)) loadSample()
+
+        // авто-подключение к симулятору при старте (для теста Gate 3 без тапов)
+        connectWatch()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -77,6 +86,22 @@ class MainActivity : Activity() {
             out.text = "Ошибка: ${e.message}"
             Log.e("routecast", "parse failed", e)
         }
+    }
+
+    private fun connectWatch() {
+        out.append("\n--- Connect IQ ---\n")
+        ciqLink?.stop()
+        ciqLink = CiqLink(this, Config.WATCH_APP_ID_HEX) { line ->
+            runOnUiThread {
+                out.append(line + "\n")
+                Log.i("routecast", line)
+            }
+        }.also { it.start() }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        ciqLink?.stop()
     }
 
     private fun loadSample() {
