@@ -117,7 +117,7 @@ class NavView extends WatchUi.View {
         // «я»
         dc.fillPolygon([[cx, meY - 11], [cx - 8, meY + 9], [cx + 8, meY + 9]]);
         if (ns.paused) {
-            dc.drawText(cx, 2, Graphics.FONT_XTINY, "ПАУЗА", Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(cx, 2, Graphics.FONT_XTINY, "PAUSE", Graphics.TEXT_JUSTIFY_CENTER);
         }
 
         // следующий манёвр + вибро
@@ -150,7 +150,7 @@ class NavView extends WatchUi.View {
 
         // оверлеи
         if (offRoute) {
-            dc.drawText(cx, H - 58, Graphics.FONT_TINY, "ВНЕ МАРШРУТА", Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(cx, H - 58, Graphics.FONT_TINY, "OFF ROUTE", Graphics.TEXT_JUSTIFY_CENTER);
         } else if (nm != null) {
             var lowBound = isFinish ? ARRIVE_M : TURN_NOW_M;
             var holding = (ns.warnIdx == manIdx) && ((System.getTimer() - ns.warnStart) < WARN_HOLD);
@@ -165,8 +165,8 @@ class NavView extends WatchUi.View {
             ns.vibedArrival = true;
             vibeOnce();
         }
-        dc.drawText(cx, H / 2 - 14, Graphics.FONT_MEDIUM, "Прибытие", Graphics.TEXT_JUSTIFY_CENTER);
-        dc.drawText(cx, H / 2 + 16, Graphics.FONT_TINY, "BACK — выход", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, H / 2 - 14, Graphics.FONT_MEDIUM, "Arrived", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, H / 2 + 16, Graphics.FONT_TINY, "BACK to exit", Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     function projectPt(pt, meXY, sinH, cosH, pxPerM, cx, meY) {
@@ -226,7 +226,7 @@ class NavView extends WatchUi.View {
             dc.setPenWidth(6);
             dc.drawCircle(cx, cy, 26);
             dc.fillCircle(cx, cy, 9);
-            dc.drawText(cx, H - 34, Graphics.FONT_MEDIUM, "ФИНИШ", Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(cx, H - 34, Graphics.FONT_MEDIUM, "FINISH", Graphics.TEXT_JUSTIFY_CENTER);
         } else {
             drawTurnArrow(dc, cx, cy, bendRad);
             dc.drawText(cx, H - 34, Graphics.FONT_MEDIUM, turnWord(bendRad), Graphics.TEXT_JUSTIFY_CENTER);
@@ -258,10 +258,10 @@ class NavView extends WatchUi.View {
     function turnWord(bendRad) {
         var deg = bendRad * 180.0 / Math.PI;
         var a = deg < 0 ? -deg : deg;
-        var side = (bendRad > 0) ? "влево" : "вправо";
-        if (a < 70.0) { return "плавно " + side; }
+        var side = (bendRad > 0) ? "left" : "right";
+        if (a < 70.0) { return "slight " + side; }
         if (a < 120.0) { return side; }
-        return "резко " + side;
+        return "sharp " + side;
     }
 
     function fmtDist(m) {

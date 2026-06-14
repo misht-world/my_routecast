@@ -51,9 +51,9 @@ class NavDelegate extends WatchUi.BehaviorDelegate {
             return true;
         }
         // Иначе — подменю «Пауза/Продолжить» + «Завершить».
-        var menu = new WatchUi.Menu2({ :title => "Навигация" });
-        menu.addItem(new WatchUi.MenuItem(ns.paused ? "Продолжить" : "Пауза", null, :pause, null));
-        menu.addItem(new WatchUi.MenuItem("Завершить", null, :finish, null));
+        var menu = new WatchUi.Menu2({ :title => "Navigation" });
+        menu.addItem(new WatchUi.MenuItem(ns.paused ? "Resume" : "Pause", null, :pause, null));
+        menu.addItem(new WatchUi.MenuItem("Finish", null, :finish, null));
         WatchUi.pushView(menu, new NavMenuDelegate(ns), WatchUi.SLIDE_UP);
         return true;
     }

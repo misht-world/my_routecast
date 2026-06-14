@@ -25,7 +25,7 @@ class MainView extends WatchUi.View {
             drawOverview(dc, W, H, cx);
             drawPlay(dc); // ▶ в субэкране
         } else if (r.state == :receiving) {
-            dc.drawText(cx, H / 2 - 26, Graphics.FONT_SMALL, "Приём", Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(cx, H / 2 - 26, Graphics.FONT_SMALL, "Receiving", Graphics.TEXT_JUSTIFY_CENTER);
             var bw = 150;
             var x = cx - bw / 2;
             var y = H / 2 + 6;
@@ -34,8 +34,8 @@ class MainView extends WatchUi.View {
             var frac = (r.np > 0) ? (r.points.size().toFloat() / r.np) : 0.0;
             dc.fillRectangle(x, y, (bw * frac).toNumber(), 10);
         } else {
-            dc.drawText(cx, H / 2 - 16, Graphics.FONT_SMALL, "Ждёт маршрут", Graphics.TEXT_JUSTIFY_CENTER);
-            dc.drawText(cx, H / 2 + 12, Graphics.FONT_TINY, "с телефона", Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(cx, H / 2 - 16, Graphics.FONT_SMALL, "Waiting for route", Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(cx, H / 2 + 12, Graphics.FONT_TINY, "from phone", Graphics.TEXT_JUSTIFY_CENTER);
         }
     }
 
@@ -93,8 +93,8 @@ class MainView extends WatchUi.View {
 
     function fmtDist(m) {
         if (m >= 1000.0) {
-            return (m / 1000.0).format("%.1f") + " км";
+            return (m / 1000.0).format("%.1f") + " km";
         }
-        return m.toNumber().toString() + " м";
+        return m.toNumber().toString() + " m";
     }
 }
