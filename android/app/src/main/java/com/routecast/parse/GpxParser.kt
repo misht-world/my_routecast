@@ -16,7 +16,11 @@ object GpxParser {
         val doc = try {
             val f = DocumentBuilderFactory.newInstance().apply {
                 isNamespaceAware = false
-                setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+                // не все парсеры (в т.ч. на Android) знают этот feature — не падаем
+                try {
+                    setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+                } catch (ignored: Exception) {
+                }
             }
             f.newDocumentBuilder().parse(ByteArrayInputStream(xml.toByteArray(Charsets.UTF_8)))
         } catch (e: Exception) {

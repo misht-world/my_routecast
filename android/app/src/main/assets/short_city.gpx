@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="OrganicMaps">
+  <trk>
+    <name>Парк - смотровая</name>
+    <trkseg>
+      <trkpt lat="55.751000" lon="37.617000"/>
+      <trkpt lat="55.751200" lon="37.617400"/>
+      <trkpt lat="55.751400" lon="37.617800"/>
+      <trkpt lat="55.751600" lon="37.618200"/>
+      <trkpt lat="55.751800" lon="37.618600"/>
+      <trkpt lat="55.752000" lon="37.619000"/>
+      <trkpt lat="55.752200" lon="37.619400"/>
+      <trkpt lat="55.752450" lon="37.619350"/>
+      <trkpt lat="55.752700" lon="37.619250"/>
+      <trkpt lat="55.752950" lon="37.619150"/>
+      <trkpt lat="55.753200" lon="37.619050"/>
+      <trkpt lat="55.753450" lon="37.618950"/>
+      <trkpt lat="55.753700" lon="37.618850"/>
+      <trkpt lat="55.753950" lon="37.618750"/>
+      <trkpt lat="55.754100" lon="37.619100"/>
+      <trkpt lat="55.754250" lon="37.619500"/>
+      <trkpt lat="55.754400" lon="37.619900"/>
+      <trkpt lat="55.754550" lon="37.620300"/>
+      <trkpt lat="55.754700" lon="37.620700"/>
+      <trkpt lat="55.754850" lon="37.621100"/>
+      <trkpt lat="55.755000" lon="37.621500"/>
+    </trkseg>
+  </trk>
+</gpx>
