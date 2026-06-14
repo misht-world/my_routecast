@@ -13,6 +13,10 @@ class NavState {
     var arrived;      // достигнут финиш
     var vibedArrival; // вибро прибытия уже дано
     var paused;       // навигация на паузе
+    var warnIdx;      // idx манёвра в активном предупреждении (-1 нет)
+    var warnStart;    // System.getTimer() начала предупреждения, мс
+    var nowIdx;       // idx манёвра, на котором уже дано вибро «сейчас»
+    var offBuzzed;    // вибро схода с маршрута уже дано
 
     function initialize(routeModel) {
         route = routeModel;
@@ -22,6 +26,10 @@ class NavState {
         arrived = false;
         vibedArrival = false;
         paused = false;
+        warnIdx = -1;
+        warnStart = 0;
+        nowIdx = -1;
+        offBuzzed = false;
         // до GPS-фикса «я» — старт маршрута (чтобы линия была видна сразу)
         meLatMicro = route.pts[0][0];
         meLonMicro = route.pts[0][1];

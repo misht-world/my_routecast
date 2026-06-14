@@ -103,6 +103,20 @@ class RouteModel {
         return Math.atan2(b[0] - a[0], b[1] - a[1]); // atan2(east, north)
     }
 
+    // Знаковый угол поворота (рад) в вершине idx — из геометрии принятой линии
+    // (часам не нужен угол в протоколе). + влево (ccw в east/north), − вправо.
+    function bendRadAt(idx) {
+        var k = 2;
+        var i0 = idx - k; if (i0 < 0) { i0 = 0; }
+        var i1 = idx + k; if (i1 > pts.size() - 1) { i1 = pts.size() - 1; }
+        var a = toXY(pts[i0][0], pts[i0][1]);
+        var b = toXY(pts[idx][0], pts[idx][1]);
+        var c = toXY(pts[i1][0], pts[i1][1]);
+        var ix = b[0] - a[0]; var iy = b[1] - a[1];
+        var ox = c[0] - b[0]; var oy = c[1] - b[1];
+        return Math.atan2(ix * oy - iy * ox, ix * ox + iy * oy);
+    }
+
     // Точка на маршруте на дистанции distM от старта (для look-ahead цели пеленга).
     function pointAtDist(distM) {
         if (distM <= 0.0 || pts.size() == 0) { return pts[0]; }
