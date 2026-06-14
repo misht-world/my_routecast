@@ -26,8 +26,17 @@ class NavDelegate extends WatchUi.BehaviorDelegate {
     }
 
     function onBack() {
-        (Application.getApp() as RoutecastApp).stopNavigation();
-        WatchUi.popView(WatchUi.SLIDE_RIGHT);
+        // На экране «Прибытие» — сразу выход с очисткой.
+        if (ns.arrived) {
+            (Application.getApp() as RoutecastApp).finishNavigation();
+            WatchUi.popView(WatchUi.SLIDE_RIGHT);
+            return true;
+        }
+        // Иначе — подменю «Пауза/Продолжить» + «Завершить».
+        var menu = new WatchUi.Menu2({ :title => "Навигация" });
+        menu.addItem(new WatchUi.MenuItem(ns.paused ? "Продолжить" : "Пауза", null, :pause, null));
+        menu.addItem(new WatchUi.MenuItem("Завершить", null, :finish, null));
+        WatchUi.pushView(menu, new NavMenuDelegate(ns), WatchUi.SLIDE_UP);
         return true;
     }
 }

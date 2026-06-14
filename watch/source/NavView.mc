@@ -74,6 +74,10 @@ class NavView extends WatchUi.View {
         // «я» — выпуклый треугольник курса (смотрит вверх)
         dc.fillPolygon([[cx, meY - 11], [cx - 8, meY + 9], [cx + 8, meY + 9]]);
 
+        if (ns.paused) {
+            dc.drawText(cx, 2, Graphics.FONT_XTINY, "ПАУЗА", Graphics.TEXT_JUSTIFY_CENTER);
+        }
+
         // нижнее поле NNN/YY
         var nm = route.nextManeuver(trav);
         var dM = (nm != null) ? (nm[2] - trav) : 0.0;
@@ -121,9 +125,25 @@ class NavView extends WatchUi.View {
         var ang = Math.atan2(ts[1] - meY, ts[0] - cx);
         var ca = Math.cos(ang);
         var sa = Math.sin(ang);
+
+        // древко
+        var len = 17;
+        var tipX = scx + ca * len;
+        var tipY = scy + sa * len;
         dc.setPenWidth(3);
-        dc.drawLine(scx - ca * 13, scy - sa * 13, scx + ca * 20, scy + sa * 20);
-        dc.fillCircle(scx + ca * 20, scy + sa * 20, 4);
+        dc.drawLine(scx - ca * len, scy - sa * len, tipX, tipY);
+        // наконечник-треугольник
+        var px = -sa; // перпендикуляр
+        var py = ca;
+        var hl = 9;   // длина наконечника
+        var hw = 6;   // полуширина
+        var bx = tipX - ca * hl;
+        var by = tipY - sa * hl;
+        dc.fillPolygon([
+            [tipX, tipY],
+            [bx + px * hw, by + py * hw],
+            [bx - px * hw, by - py * hw]
+        ]);
     }
 
     function fmtDist(m) {

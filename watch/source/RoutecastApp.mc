@@ -36,9 +36,20 @@ class RoutecastApp extends Application.AppBase {
         WatchUi.pushView(new NavView(navState), new NavDelegate(navState), WatchUi.SLIDE_LEFT);
     }
 
-    // Остановка навигации (BACK / прибытие): выключаем GPS, возврат к MainView (READY).
-    function stopNavigation() {
+    // Пауза/возобновление навигации (подменю BACK).
+    function pauseNavigation() {
         Position.enableLocationEvents(Position.LOCATION_DISABLE, method(:onPosition));
+    }
+
+    function resumeNavigation() {
+        Position.enableLocationEvents(Position.LOCATION_CONTINUOUS, method(:onPosition));
+    }
+
+    // Завершение: выключаем GPS и ОЧИЩАЕМ маршрут (минимум следов) -> IDLE.
+    function finishNavigation() {
+        Position.enableLocationEvents(Position.LOCATION_DISABLE, method(:onPosition));
+        receiver.reset();
+        receiver.state = :idle;
         navState = null;
     }
 

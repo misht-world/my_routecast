@@ -12,6 +12,7 @@ class NavState {
     var zoom;         // 0..2, по умолчанию средний
     var arrived;      // достигнут финиш
     var vibedArrival; // вибро прибытия уже дано
+    var paused;       // навигация на паузе
 
     function initialize(routeModel) {
         route = routeModel;
@@ -20,6 +21,7 @@ class NavState {
         headingRad = null;
         arrived = false;
         vibedArrival = false;
+        paused = false;
         // до GPS-фикса «я» — старт маршрута (чтобы линия была видна сразу)
         meLatMicro = route.pts[0][0];
         meLonMicro = route.pts[0][1];
