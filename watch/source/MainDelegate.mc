@@ -1,6 +1,7 @@
 using Toybox.WatchUi;
+using Toybox.Application;
 
-// START прогоняет мок-последовательность H/L/M/E — проверка сборки в симуляторе без телефона.
+// START: если маршрут не собран — прогнать мок (Gate 2); если READY — старт навигации.
 class MainDelegate extends WatchUi.BehaviorDelegate {
 
     var r;
@@ -11,7 +12,11 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
     }
 
     function onSelect() {
-        MockFeeder.feed(r);
+        if (r.state == :ready) {
+            (Application.getApp() as RoutecastApp).startNavigation();
+        } else {
+            MockFeeder.feed(r);
+        }
         WatchUi.requestUpdate();
         return true;
     }
