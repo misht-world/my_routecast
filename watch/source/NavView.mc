@@ -1,12 +1,14 @@
 using Toybox.WatchUi;
 using Toybox.Graphics;
 using Toybox.Math;
+using Toybox.Attention;
 
 // Отрисовка маршрута heading-up (SPEC §5.4): линия + «я» (ниже центра) + финиш-кольцо +
-// нижнее поле NNN/YY + субэкран-пеленг на look-ahead точку. Один тон (монохром).
+// нижнее поле NNN/YY + субэкран-пеленг. Плюс экран «Прибытие». Один тон (монохром).
 class NavView extends WatchUi.View {
 
     const LOOKAHEAD = 40.0;
+    const ARRIVE_M = 20.0;
 
     var ns;
 
@@ -26,6 +28,22 @@ class NavView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
 
         var route = ns.route;
+
+        // следование: ближайший сегмент -> traveled -> остаток
+        var near = route.nearest(ns.meLatMicro, ns.meLonMicro);
+        var trav = near[3];
+        var rem = route.totalM() - trav;
+        if (rem < 0.0) { rem = 0.0; }
+
+        // прибытие
+        if (!ns.arrived && route.totalM() > ARRIVE_M && rem <= ARRIVE_M) {
+            ns.arrived = true;
+        }
+        if (ns.arrived) {
+            drawArrival(dc, cx, H);
+            return;
+        }
+
         var h = ns.effHeading();
         var sinH = Math.sin(h);
         var cosH = Math.cos(h);
@@ -53,24 +71,29 @@ class NavView extends WatchUi.View {
         dc.setPenWidth(2);
         dc.drawCircle(fp[0], fp[1], 6);
 
-        // «я» — треугольник курса (смотрит вверх)
-        dc.fillPolygon([[cx, meY - 9], [cx - 7, meY + 8], [cx, meY + 3], [cx + 7, meY + 8]]);
+        // «я» — выпуклый треугольник курса (смотрит вверх)
+        dc.fillPolygon([[cx, meY - 11], [cx - 8, meY + 9], [cx + 8, meY + 9]]);
 
-        // следование: ближайший сегмент -> traveled -> следующий манёвр
-        var near = route.nearest(ns.meLatMicro, ns.meLonMicro);
-        var trav = near[3];
+        // нижнее поле NNN/YY
         var nm = route.nextManeuver(trav);
         var dM = (nm != null) ? (nm[2] - trav) : 0.0;
         if (dM < 0.0) { dM = 0.0; }
-        var rem = route.totalM() - trav;
-        if (rem < 0.0) { rem = 0.0; }
-
-        // нижнее поле NNN/YY
         dc.drawText(cx, H - 30, Graphics.FONT_MEDIUM,
             fmtDist(dM) + "/" + (rem / 1000.0).format("%.1f"),
             Graphics.TEXT_JUSTIFY_CENTER);
 
         drawSubBearing(dc, route, meXY, sinH, cosH, pxPerM, cx, meY, trav);
+    }
+
+    function drawArrival(dc, cx, H) {
+        if (!ns.vibedArrival) {
+            ns.vibedArrival = true;
+            if (Attention has :vibrate) {
+                Attention.vibrate([new Attention.VibeProfile(75, 400)]);
+            }
+        }
+        dc.drawText(cx, H / 2 - 14, Graphics.FONT_MEDIUM, "Прибытие", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, H / 2 + 16, Graphics.FONT_TINY, "BACK — выход", Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     // проекция [latMicro,lonMicro] в экран (heading-up: вперёд = вверх, право = вправо)
@@ -87,7 +110,6 @@ class NavView extends WatchUi.View {
         var scx = 144;
         var scy = 31;
         var sr = 27;
-        // фон врезки + рамка
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.fillCircle(scx, scy, sr + 4);
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);

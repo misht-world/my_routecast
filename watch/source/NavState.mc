@@ -10,12 +10,16 @@ class NavState {
     var headingRad;   // Float или null (нет курса с GPS)
     var hasFix;
     var zoom;         // 0..2, по умолчанию средний
+    var arrived;      // достигнут финиш
+    var vibedArrival; // вибро прибытия уже дано
 
     function initialize(routeModel) {
         route = routeModel;
         hasFix = false;
         zoom = 1;
         headingRad = null;
+        arrived = false;
+        vibedArrival = false;
         // до GPS-фикса «я» — старт маршрута (чтобы линия была видна сразу)
         meLatMicro = route.pts[0][0];
         meLonMicro = route.pts[0][1];

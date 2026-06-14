@@ -1,4 +1,5 @@
 using Toybox.WatchUi;
+using Toybox.Application;
 
 // Управление в навигации: UP/DOWN — зум, BACK — выход (SPEC §5.1).
 class NavDelegate extends WatchUi.BehaviorDelegate {
@@ -25,6 +26,7 @@ class NavDelegate extends WatchUi.BehaviorDelegate {
     }
 
     function onBack() {
+        (Application.getApp() as RoutecastApp).stopNavigation();
         WatchUi.popView(WatchUi.SLIDE_RIGHT);
         return true;
     }

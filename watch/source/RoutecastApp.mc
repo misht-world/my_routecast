@@ -36,6 +36,12 @@ class RoutecastApp extends Application.AppBase {
         WatchUi.pushView(new NavView(navState), new NavDelegate(navState), WatchUi.SLIDE_LEFT);
     }
 
+    // Остановка навигации (BACK / прибытие): выключаем GPS, возврат к MainView (READY).
+    function stopNavigation() {
+        Position.enableLocationEvents(Position.LOCATION_DISABLE, method(:onPosition));
+        navState = null;
+    }
+
     function onPosition(info as Position.Info) as Void {
         if (navState == null) { return; }
         if (info.position != null) {
