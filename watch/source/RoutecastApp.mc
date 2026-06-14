@@ -17,6 +17,7 @@ class RoutecastApp extends Application.AppBase {
 
     function onStart(state) {
         Communications.registerForPhoneAppMessages(method(:onPhone));
+        if (Cfg.DEMO_AUTOLOAD) { MockFeeder.feed(receiver); } // без телефона — сразу обзор
     }
 
     function onStop(state) {
@@ -32,6 +33,7 @@ class RoutecastApp extends Application.AppBase {
     function startNavigation() {
         if (receiver.state != :ready) { return; }
         navState = new NavState(new RouteModel(receiver.points, receiver.maneuvers));
+        navState.demo = Cfg.DEMO_MOVE; // в симуляторе едем сами; реальный GPS перебьёт
         Position.enableLocationEvents(Position.LOCATION_CONTINUOUS, method(:onPosition));
         WatchUi.pushView(new NavView(navState), new NavDelegate(navState), WatchUi.SLIDE_LEFT);
     }
@@ -58,6 +60,7 @@ class RoutecastApp extends Application.AppBase {
         if (info.position != null) {
             var d = info.position.toDegrees();
             var hdg = info.heading;
+            navState.demo = false; // пришёл реальный GPS — демо больше не нужно
             navState.setFix((d[0] * 1000000).toNumber(), (d[1] * 1000000).toNumber(), hdg);
             WatchUi.requestUpdate();
         }

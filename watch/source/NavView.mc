@@ -144,17 +144,13 @@ class NavView extends WatchUi.View {
         dc.drawText(cx, H - 34, Graphics.FONT_MEDIUM,
             fmtDist(dTo) + "/" + (rem / 1000.0).format("%.1f"),
             Graphics.TEXT_JUSTIFY_CENTER);
-        if (!ns.demo) {
-            dc.drawText(cx, H - 14, Graphics.FONT_XTINY, "START = демо", Graphics.TEXT_JUSTIFY_CENTER);
-        }
-
         // субэкран — компасная игла (без рамки); off-route -> назад на линию
         var bearingTrav = offRoute ? trav : (trav + LOOKAHEAD);
         drawNeedle(dc, route, meXY, sinH, cosH, pxPerM, cx, meY, bearingTrav);
 
         // оверлеи
         if (offRoute) {
-            dc.drawText(cx, H - 56, Graphics.FONT_SMALL, "OFF ROUTE", Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(cx, H - 58, Graphics.FONT_TINY, "ВНЕ МАРШРУТА", Graphics.TEXT_JUSTIFY_CENTER);
         } else if (nm != null) {
             var lowBound = isFinish ? ARRIVE_M : TURN_NOW_M;
             var holding = (ns.warnIdx == manIdx) && ((System.getTimer() - ns.warnStart) < WARN_HOLD);
@@ -193,21 +189,31 @@ class NavView extends WatchUi.View {
         var tgt = route.pointAtDist(atDist);
         var ts = projectPt(tgt, meXY, sinH, cosH, pxPerM, cx, meY);
         var ang = Math.atan2(ts[1] - meY, ts[0] - cx);
-        var ca = Math.cos(ang);
-        var sa = Math.sin(ang);
+        drawNavArrow(dc, scx, scy, ang, 17);
+    }
+
+    // Стрелка навигации в стиле Garmin: остриё по angle + срезанный (V) низ.
+    // Концав делаем чёрной «выемкой» поверх белого треугольника (fillPolygon не любит вогнутость).
+    function drawNavArrow(dc, cx, cy, angle, size) {
+        var ca = Math.cos(angle);
+        var sa = Math.sin(angle);
         var px = -sa;
         var py = ca;
-        var tipX = scx + ca * 19;
-        var tipY = scy + sa * 19;
-        var tailX = scx - ca * 12;
-        var tailY = scy - sa * 12;
-        var wHalf = 6;
-        dc.fillPolygon([
-            [tipX, tipY],
-            [scx + px * wHalf, scy + py * wHalf],
-            [tailX, tailY],
-            [scx - px * wHalf, scy - py * wHalf]
-        ]);
+        var tipX = cx + ca * size;
+        var tipY = cy + sa * size;
+        var bcx = cx - ca * size * 0.55;
+        var bcy = cy - sa * size * 0.55;
+        var hw = size * 0.66;
+        var blX = bcx + px * hw; var blY = bcy + py * hw;
+        var brX = bcx - px * hw; var brY = bcy - py * hw;
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.fillPolygon([[tipX, tipY], [blX, blY], [brX, brY]]);
+        // выемка снизу
+        var nX = bcx + ca * size * 0.5;
+        var nY = bcy + sa * size * 0.5;
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        dc.fillPolygon([[nX, nY], [blX, blY], [brX, brY]]);
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
     }
 
     // полноэкранный анонс поворота/финиша; слово СНИЗУ (вверху перекрывает субэкран)
@@ -220,7 +226,7 @@ class NavView extends WatchUi.View {
             dc.setPenWidth(6);
             dc.drawCircle(cx, cy, 26);
             dc.fillCircle(cx, cy, 9);
-            dc.drawText(cx, H - 34, Graphics.FONT_MEDIUM, "финиш", Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(cx, H - 34, Graphics.FONT_MEDIUM, "ФИНИШ", Graphics.TEXT_JUSTIFY_CENTER);
         } else {
             drawTurnArrow(dc, cx, cy, bendRad);
             dc.drawText(cx, H - 34, Graphics.FONT_MEDIUM, turnWord(bendRad), Graphics.TEXT_JUSTIFY_CENTER);
@@ -239,9 +245,9 @@ class NavView extends WatchUi.View {
         dc.setPenWidth(9);
         dc.drawLine(cx, cy + sh, cx, cy);
         dc.drawLine(cx, cy, ex, ey);
-        // наконечник
-        var hl = 17;
-        var hw = 12;
+        // наконечник — острый
+        var hl = 22;
+        var hw = 10;
         var bx = ex - ca * hl;
         var by = ey - sa * hl;
         var px = -sa;

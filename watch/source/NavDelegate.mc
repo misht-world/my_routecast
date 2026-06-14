@@ -25,12 +25,7 @@ class NavDelegate extends WatchUi.BehaviorDelegate {
         return true;
     }
 
-    // START/MENU — встроенный демо-прогон (для проверки без GPS-плеера симулятора)
-    function onSelect() {
-        toggleDemo();
-        return true;
-    }
-
+    // MENU — пауза/продолжение демо-движения (тест без GPS-плеера)
     function onMenu() {
         toggleDemo();
         return true;

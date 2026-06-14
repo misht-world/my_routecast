@@ -175,6 +175,8 @@ Watch widget (Monkey C)
 - На `E` — проверить полноту; ок → `A(-3)`, перейти в `READY`; не ок → `N(пропущенный s)`.
 
 ### 5.3 Позиционирование
+**GPS — собственный приёмник часов** (Instinct 3 автономен). Телефон нужен только для
+разовой передачи маршрута; в навигации часы ведут офлайн, без телефона.
 `Position.enableLocationEvents(...)`; из `Position.Info` берём `position`, `heading`
 (курс по GPS), `accuracy`. Если heading недоступен на малой скорости — fallback на компас
 (`Sensor`/`Toybox.SensorHistory` heading) либо north-up.
