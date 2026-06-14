@@ -12,9 +12,11 @@ class RouteReceiver {
     var points;     // массив [mlat, mlon] (абсолютные микроградусы)
     var maneuvers;  // массив [idx, type, dist]
     var logLine;
+    var replyEnabled; // слать ack только при приёме от реального телефона (не из мока/тестов)
 
     function initialize() {
         logLine = "";
+        replyEnabled = false;
         reset();
         state = :idle;
     }
@@ -110,10 +112,14 @@ class RouteReceiver {
     }
 
     function send(dict) {
-        // Gate 2: телефона нет (мок подаём напрямую), поэтому ack только логируем —
-        // реальный Communications.transmit зависает в симуляторе без моста.
-        // TODO(Gate 3): включить transmit на adb-tethered связке телефон↔симулятор.
-        // Communications.transmit(dict, null, new AckListener());
+        // Реальный ack шлём только когда приём идёт от телефона (replyEnabled).
+        // Из мока/юнит-тестов transmit не зовём — он зависает в симуляторе без моста.
+        if (replyEnabled) {
+            try {
+                Communications.transmit(dict, null, new AckListener());
+            } catch (e) {
+            }
+        }
     }
 
     function log(s) {

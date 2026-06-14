@@ -25,6 +25,7 @@ class RoutecastApp extends Application.AppBase {
 
     // Сообщение с телефона: msg.data — Dictionary протокола (см. docs/protocol.md).
     function onPhone(msg as Communications.PhoneAppMessage) as Void {
+        receiver.replyEnabled = true; // приём от телефона — шлём ack
         receiver.handle(msg.data);
         WatchUi.requestUpdate();
     }

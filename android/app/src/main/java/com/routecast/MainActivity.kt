@@ -5,6 +5,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import com.routecast.proto.Encoder
+import com.routecast.proto.MessageBuilder
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
@@ -20,6 +22,8 @@ class MainActivity : Activity() {
 
     private lateinit var out: TextView
     private var ciqLink: CiqLink? = null
+    private var lastEnc: Encoder.Encoded? = null
+    private var transfer: Transfer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,6 +40,10 @@ class MainActivity : Activity() {
             text = "Connect to watch (sim)"
             setOnClickListener { connectWatch() }
         }
+        val sendBtn = Button(this).apply {
+            text = "Send to watch"
+            setOnClickListener { sendToWatch() }
+        }
         out = TextView(this).apply {
             textSize = 14f
             setLineSpacing(0f, 1.2f)
@@ -44,6 +52,7 @@ class MainActivity : Activity() {
 
         root.addView(sampleBtn)
         root.addView(connectBtn)
+        root.addView(sendBtn)
         root.addView(scroll, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.MATCH_PARENT
@@ -91,12 +100,31 @@ class MainActivity : Activity() {
     private fun connectWatch() {
         out.append("\n--- Connect IQ ---\n")
         ciqLink?.stop()
-        ciqLink = CiqLink(this, Config.WATCH_APP_ID_HEX) { line ->
+        val link = CiqLink(this, Config.WATCH_APP_ID_HEX) { line ->
             runOnUiThread {
                 out.append(line + "\n")
                 Log.i("routecast", line)
             }
-        }.also { it.start() }
+        }
+        link.onReady = { runOnUiThread { out.append("ready to send → tap Send to watch\n") } }
+        ciqLink = link
+        link.start()
+    }
+
+    private fun sendToWatch() {
+        val enc = lastEnc
+        val link = ciqLink
+        if (enc == null) { out.append("сначала загрузите маршрут\n"); return }
+        if (link == null) { out.append("сначала Connect to watch\n"); return }
+        link.openApp()
+        val packets = MessageBuilder.build(enc)
+        out.append("→ передаю ${packets.size} пакетов…\n")
+        transfer = Transfer(
+            link, packets,
+            onProgress = { sent, total -> runOnUiThread { out.append("  ack $sent/$total\n") } },
+            onDone = { runOnUiThread { out.append("✓ маршрут передан\n") } },
+            onError = { msg -> runOnUiThread { out.append("✗ $msg\n") } }
+        ).also { it.start() }
     }
 
     override fun onDestroy() {
@@ -115,6 +143,7 @@ class MainActivity : Activity() {
     }
 
     private fun show(r: RouteProcessor.Result) {
+        lastEnc = r.encoded
         val sb = StringBuilder()
         sb.appendLine("Маршрут: ${r.encoded.header.name}")
         sb.appendLine("Исходных точек: ${r.rawPoints}")

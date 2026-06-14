@@ -22,6 +22,15 @@ class CiqLink(
     private var polls = 0
     private val seen = HashSet<Long>()
 
+    private var device: IQDevice? = null
+    private var app: IQApp? = null
+
+    /** Готовность к передаче (устройство подключено, watch-апп найден). */
+    var onReady: (() -> Unit)? = null
+    /** Подтверждения от часов. */
+    var onAck: ((Int) -> Unit)? = null
+    var onNack: ((Int) -> Unit)? = null
+
     fun start() {
         val c = ConnectIQ.getInstance(ctx, ConnectIQ.IQConnectType.TETHERED)
         ciq = c
@@ -69,8 +78,12 @@ class CiqLink(
         val c = ciq ?: return
         try {
             c.getApplicationInfo(appIdHex, d, object : ConnectIQ.IQApplicationInfoListener {
-                override fun onApplicationInfoReceived(app: IQApp) {
+                override fun onApplicationInfoReceived(foundApp: IQApp) {
                     log("watch app INSTALLED on ${d.friendlyName}")
+                    device = d
+                    app = foundApp
+                    registerAck(d, foundApp)
+                    onReady?.invoke()
                 }
                 override fun onApplicationNotInstalled(applicationId: String) {
                     log("watch app NOT installed on ${d.friendlyName}")
@@ -78,6 +91,53 @@ class CiqLink(
             })
         } catch (e: Exception) {
             log("appInfo err: ${e.message}")
+        }
+    }
+
+    private fun registerAck(d: IQDevice, a: IQApp) {
+        val c = ciq ?: return
+        try {
+            c.registerForAppEvents(d, a) { _, _, message, _ ->
+                for (e in message) {
+                    val map = e as? Map<*, *> ?: continue
+                    val t = map["t"] as? String ?: continue
+                    val s = (map["s"] as? Number)?.toInt() ?: continue
+                    when (t) {
+                        "A" -> onAck?.invoke(s)
+                        "N" -> onNack?.invoke(s)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            log("appEvents err: ${e.message}")
+        }
+    }
+
+    /** Открыть watch-апп на устройстве (на симуляторе уже запущен). */
+    fun openApp() {
+        val c = ciq ?: return
+        val d = device ?: return
+        val a = app ?: return
+        try {
+            c.openApplication(d, a) { _, _, status -> log("openApp: ${status.name}") }
+        } catch (e: Exception) {
+            log("openApp err: ${e.message}")
+        }
+    }
+
+    /** Отправить один пакет протокола. */
+    fun sendMessage(payload: Map<String, Any?>, onStatus: (Boolean) -> Unit) {
+        val c = ciq
+        val d = device
+        val a = app
+        if (c == null || d == null || a == null) { onStatus(false); return }
+        try {
+            c.sendMessage(d, a, HashMap(payload)) { _, _, status ->
+                onStatus(status == ConnectIQ.IQMessageStatus.SUCCESS)
+            }
+        } catch (e: Exception) {
+            log("send err: ${e.message}")
+            onStatus(false)
         }
     }
 

@@ -11,6 +11,10 @@ object Config {
     const val MAX_LINE_POINTS = 250
     const val POINTS_PER_CHUNK = 40 // TODO: verify on device (реальный лимит mailbox)
 
+    // Передача (stop-and-wait, docs/protocol.md)
+    const val ACK_TIMEOUT_MS = 4000L // TODO: verify on device
+    const val MAX_RETRY = 3
+
     // Детект манёвров (SPEC §4.3)
     const val TURN_MIN_DEG = 35.0
     const val MERGE_DIST_M = 15.0
