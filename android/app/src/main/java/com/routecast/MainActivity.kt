@@ -133,9 +133,13 @@ class MainActivity : Activity() {
     }
 
     private fun loadSample() {
+        // если положен реальный трек — берём его, иначе встроенный образец
+        val name = try {
+            if (assets.list("")?.contains("real_route.gpx") == true) "real_route.gpx" else "short_city.gpx"
+        } catch (e: Exception) { "short_city.gpx" }
         try {
-            val content = assets.open("short_city.gpx").bufferedReader().use { it.readText() }
-            show(RouteProcessor.process("short_city.gpx", content))
+            val content = assets.open(name).bufferedReader().use { it.readText() }
+            show(RouteProcessor.process(name, content))
         } catch (e: Exception) {
             out.text = "Ошибка: ${e.message}"
             Log.e("routecast", "parse failed", e)

@@ -15,3 +15,7 @@ android/local.properties
 watch/bin/
 watch/developer_key.pem
 watch/developer_key.der
+
+# Личные тестовые треки
+kmz_tests/
+android/app/src/main/assets/real_route.gpx

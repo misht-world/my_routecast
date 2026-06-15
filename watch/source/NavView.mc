@@ -13,7 +13,7 @@ class NavView extends WatchUi.View {
     const TURN_WARN_M = 50.0;
     const TURN_NOW_M = 10.0;
     const OFFROUTE_M = 40.0;
-    const WARN_HOLD = 2000; // мс
+    const WARN_HOLD = 2500; // мс — окно показа типа поворота в субэкране
     const DEMO_STEP = 5.0;  // м за тик демо
 
     var ns;
@@ -120,7 +120,7 @@ class NavView extends WatchUi.View {
             dc.drawText(cx, 2, Graphics.FONT_XTINY, "PAUSE", Graphics.TEXT_JUSTIFY_CENTER);
         }
 
-        // следующий манёвр + вибро
+        // следующий манёвр + анонс: одна короткая вибрация за 50 м (раз на манёвр)
         var nm = route.nextManeuver(trav);
         var manDist = (nm != null) ? route.maneuverDistM(nm) : 1.0e9;
         var dTo = manDist - trav;
@@ -128,35 +128,28 @@ class NavView extends WatchUi.View {
         var isFinish = (nm != null) && (nm[1] == 9);
         var manIdx = (nm != null) ? nm[0] : -1;
 
-        if (!offRoute && nm != null && dTo <= TURN_WARN_M) {
-            if (ns.warnIdx != manIdx) {
-                ns.warnIdx = manIdx;
-                ns.warnStart = System.getTimer();
-                vibeOnce();
-            }
-        }
-        if (!offRoute && !isFinish && nm != null && dTo <= TURN_NOW_M && ns.nowIdx != manIdx) {
-            ns.nowIdx = manIdx;
-            vibeNow();
+        if (!offRoute && nm != null && dTo <= TURN_WARN_M && ns.warnIdx != manIdx) {
+            ns.warnIdx = manIdx;
+            ns.warnStart = System.getTimer();
+            vibeOnce();
         }
 
-        // нижнее поле NNN/YY + подсказка демо
+        // нижнее поле NNN/YY
         dc.drawText(cx, H - 34, Graphics.FONT_MEDIUM,
             fmtDist(dTo) + "/" + (rem / 1000.0).format("%.1f"),
             Graphics.TEXT_JUSTIFY_CENTER);
-        // субэкран — компасная игла (без рамки); off-route -> назад на линию
-        var bearingTrav = offRoute ? trav : (trav + LOOKAHEAD);
-        drawNeedle(dc, route, meXY, sinH, cosH, pxPerM, cx, meY, bearingTrav);
 
-        // оверлеи
+        // Субэкран: по умолчанию пеленг (основное). На WARN_HOLD за 50 м до поворота —
+        // схематичный тип манёвра (плавно/90/резко из type), потом снова пеленг.
+        var showGlyph = (!offRoute && !isFinish && nm != null && ns.warnIdx == manIdx
+            && (System.getTimer() - ns.warnStart) < WARN_HOLD);
         if (offRoute) {
+            drawNeedle(dc, route, meXY, sinH, cosH, pxPerM, cx, meY, trav);
             dc.drawText(cx, H - 58, Graphics.FONT_TINY, "OFF ROUTE", Graphics.TEXT_JUSTIFY_CENTER);
-        } else if (nm != null) {
-            var lowBound = isFinish ? ARRIVE_M : TURN_NOW_M;
-            var holding = (ns.warnIdx == manIdx) && ((System.getTimer() - ns.warnStart) < WARN_HOLD);
-            if (holding && dTo > lowBound) {
-                drawTurnWarning(dc, cx, W, H, isFinish, route.bendRadAt(manIdx));
-            }
+        } else if (showGlyph) {
+            drawTurnGlyph(dc, nm[1]);
+        } else {
+            drawNeedle(dc, route, meXY, sinH, cosH, pxPerM, cx, meY, trav + LOOKAHEAD);
         }
     }
 
@@ -216,52 +209,38 @@ class NavView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
     }
 
-    // полноэкранный анонс поворота/финиша; слово СНИЗУ (вверху перекрывает субэкран)
-    function drawTurnWarning(dc, cx, W, H, isFinish, bendRad) {
+    // Схематичная стрелка типа манёвра в субэкране (по type: плавно/90/резко + сторона).
+    function drawTurnGlyph(dc, type) {
+        var scx = 144;
+        var scy = 31;
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
-        dc.fillRectangle(0, 0, W, H);
+        dc.fillCircle(scx, scy, 31);
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        var cy = (H * 0.44).toNumber();
-        if (isFinish) {
-            dc.setPenWidth(6);
-            dc.drawCircle(cx, cy, 26);
-            dc.fillCircle(cx, cy, 9);
-            dc.drawText(cx, H - 34, Graphics.FONT_MEDIUM, "FINISH", Graphics.TEXT_JUSTIFY_CENTER);
-        } else {
-            drawTurnArrow(dc, cx, cy, bendRad);
-            dc.drawText(cx, H - 34, Graphics.FONT_MEDIUM, turnWord(bendRad), Graphics.TEXT_JUSTIFY_CENTER);
-        }
+        var sharp = type < 0 ? -type : type;
+        var deg = (sharp == 1) ? 35.0 : ((sharp == 2) ? 90.0 : 135.0);
+        var bend = -(type < 0 ? -1.0 : 1.0) * deg * Math.PI / 180.0; // type>0 право -> bend<0
+        drawTurnArrow(dc, scx, scy, bend, 0.5);
     }
 
-    // Жирная гнутая стрелка поворота (filled): древко вверх + плечо по углу + крупный наконечник.
-    function drawTurnArrow(dc, cx, cy, bendRad) {
+    // Гнутая стрелка поворота: древко вверх + плечо по углу + наконечник. scale под размер.
+    function drawTurnArrow(dc, cx, cy, bendRad, scale) {
         var armAngle = -Math.PI / 2 - bendRad; // + влево / − вправо (экран y вниз)
-        var sh = 30;   // длина древка вниз
-        var arm = 34;  // длина плеча
+        var sh = 24 * scale;
+        var arm = 28 * scale;
         var ca = Math.cos(armAngle);
         var sa = Math.sin(armAngle);
         var ex = cx + ca * arm;
         var ey = cy + sa * arm;
-        dc.setPenWidth(9);
+        dc.setPenWidth((7 * scale + 1).toNumber());
         dc.drawLine(cx, cy + sh, cx, cy);
         dc.drawLine(cx, cy, ex, ey);
-        // наконечник — острый
-        var hl = 22;
-        var hw = 10;
+        var hl = 18 * scale;
+        var hw = 9 * scale;
         var bx = ex - ca * hl;
         var by = ey - sa * hl;
         var px = -sa;
         var py = ca;
         dc.fillPolygon([[ex, ey], [bx + px * hw, by + py * hw], [bx - px * hw, by - py * hw]]);
-    }
-
-    function turnWord(bendRad) {
-        var deg = bendRad * 180.0 / Math.PI;
-        var a = deg < 0 ? -deg : deg;
-        var side = (bendRad > 0) ? "left" : "right";
-        if (a < 70.0) { return "slight " + side; }
-        if (a < 120.0) { return side; }
-        return "sharp " + side;
     }
 
     function fmtDist(m) {
@@ -271,19 +250,10 @@ class NavView extends WatchUi.View {
         return m.toNumber().toString();
     }
 
+    // Одна короткая вибрация — все оповещения (экономия батареи).
     function vibeOnce() {
         if (Attention has :vibrate) {
-            Attention.vibrate([new Attention.VibeProfile(60, 250)]);
-        }
-    }
-
-    function vibeNow() {
-        if (Attention has :vibrate) {
-            Attention.vibrate([
-                new Attention.VibeProfile(75, 180),
-                new Attention.VibeProfile(0, 100),
-                new Attention.VibeProfile(75, 180)
-            ]);
+            Attention.vibrate([new Attention.VibeProfile(50, 200)]);
         }
     }
 }

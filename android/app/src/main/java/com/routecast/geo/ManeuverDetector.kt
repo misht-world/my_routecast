@@ -38,40 +38,37 @@ object ManeuverDetector {
         val brg = DoubleArray(full.size - 1)
         for (i in 0 until full.size - 1) brg[i] = bearing(full[i], full[i + 1])
 
-        data class Raw(val fullIdx: Int, val turn: Double)
-        val raw = ArrayList<Raw>()
+        // Нетто-кластеризация: поворотное событие = подряд идущие вершины с |turn| >= MIN_VERTEX,
+        // прерванные прямым участком >= MERGE_DIST. Угол события = сумма знаковых поворотов.
+        val out = ArrayList<Maneuver>()
+        var open = false
+        var acc = 0.0          // нетто-угол события
+        var peakIdx = -1       // вершина с макс |turn| в событии
+        var peakAbs = 0.0
+        var gap = 0.0          // прямая дистанция после последней поворотной вершины
+
         for (i in 1 until full.size - 1) {
             val turn = normalize180(brg[i] - brg[i - 1])
-            if (abs(turn) >= Config.TURN_MIN_DEG) raw.add(Raw(i, turn))
-        }
-
-        // схлопывание близких манёвров (< MERGE_DIST_M): оставляем самый острый
-        val merged = ArrayList<Raw>()
-        var i = 0
-        while (i < raw.size) {
-            var j = i
-            var best = raw[i]
-            while (j + 1 < raw.size &&
-                cum[raw[j + 1].fullIdx] - cum[raw[j].fullIdx] < Config.MERGE_DIST_M
-            ) {
-                j++
-                if (abs(raw[j].turn) > abs(best.turn)) best = raw[j]
+            val segLen = haversine(full[i], full[i + 1])
+            if (abs(turn) >= Config.MIN_VERTEX_DEG) {
+                if (!open) { open = true; acc = 0.0; peakAbs = 0.0 }
+                acc += turn
+                if (abs(turn) > peakAbs) { peakAbs = abs(turn); peakIdx = i }
+                gap = 0.0
+            } else if (open) {
+                gap += segLen
+                if (gap >= Config.MERGE_DIST_M) {
+                    if (abs(acc) >= Config.TURN_MIN_DEG) {
+                        out.add(makeManeuver(peakIdx, acc, cum, full, decimated))
+                    }
+                    open = false
+                }
             }
-            merged.add(best)
-            i = j + 1
+        }
+        if (open && abs(acc) >= Config.TURN_MIN_DEG) {
+            out.add(makeManeuver(peakIdx, acc, cum, full, decimated))
         }
 
-        val out = ArrayList<Maneuver>(merged.size + 1)
-        for (m in merged) {
-            out.add(
-                Maneuver(
-                    idx = nearestDecimated(full[m.fullIdx], decimated),
-                    type = classify(m.turn),
-                    distM = cum[m.fullIdx].roundToInt(),
-                    bendDeg = m.turn
-                )
-            )
-        }
         // финиш
         out.add(
             Maneuver(
@@ -83,6 +80,19 @@ object ManeuverDetector {
         )
         return out
     }
+
+    private fun makeManeuver(
+        peakIdx: Int,
+        netAngle: Double,
+        cum: DoubleArray,
+        full: List<Pt>,
+        decimated: List<Pt>
+    ): Maneuver = Maneuver(
+        idx = nearestDecimated(full[peakIdx], decimated),
+        type = classify(netAngle),
+        distM = cum[peakIdx].roundToInt(),
+        bendDeg = netAngle
+    )
 
     private fun classify(turn: Double): Int {
         val a = abs(turn)

@@ -47,6 +47,20 @@ class ManeuverDetectorTest {
     }
 
     @Test
+    fun zigzagCrossingIsCancelled() {
+        // прямо на восток, короткий зигзаг (переход через дорогу: влево+вправо), снова прямо
+        val pts = ArrayList<Pt>()
+        var lon = 30.0
+        for (i in 0..9) { pts.add(Pt(50.0, lon)); lon += 1e-4 }   // ~7 м шаг
+        pts.add(Pt(50.00006, lon)); lon += 1e-4                    // вильнул вверх
+        pts.add(Pt(50.0, lon)); lon += 1e-4                        // вернулся
+        for (i in 0..9) { pts.add(Pt(50.0, lon)); lon += 1e-4 }
+        val man = ManeuverDetector.detect(pts, pts)
+        // нетто-угол виляния ≈ 0 -> манёвр НЕ выдаётся, остаётся только финиш
+        assertEquals(0, man.count { it.type != 9 })
+    }
+
+    @Test
     fun hairpinIsSharp() {
         // разворот ~180°
         val out = (0..10).map { Pt(50.0, 30.0 + it * 1e-3) }
