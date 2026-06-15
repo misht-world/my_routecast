@@ -20,6 +20,7 @@ class NavState {
     var demo;         // встроенный демо-прогон (движение по таймеру)
     var demoDist;     // пройдено в демо, метры
     var gpsAcc;       // качество GPS (Position.Quality: 0 нет .. 4 отлично)
+    var gpsHasPos;    // есть ли объект позиции от приёмника
 
     function initialize(routeModel) {
         route = routeModel;
@@ -36,6 +37,7 @@ class NavState {
         demo = false;
         demoDist = 0.0;
         gpsAcc = 0;
+        gpsHasPos = false;
         // до GPS-фикса «я» — старт маршрута (чтобы линия была видна сразу)
         meLatMicro = route.pts[0][0];
         meLonMicro = route.pts[0][1];

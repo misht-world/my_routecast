@@ -49,6 +49,7 @@ class NavView extends WatchUi.View {
         var info = Position.getInfo();
         if (info != null) {
             ns.gpsAcc = (info.accuracy != null) ? info.accuracy : 0;
+            ns.gpsHasPos = (info.position != null);
             if (info.position != null && ns.gpsAcc >= 2) { // POOR и лучше
                 var d = info.position.toDegrees();
                 ns.setFix((d[0] * 1000000).toNumber(), (d[1] * 1000000).toNumber(), info.heading);
@@ -132,8 +133,6 @@ class NavView extends WatchUi.View {
         if (ns.paused) {
             dc.drawText(cx, 2, Graphics.FONT_XTINY, "PAUSE", Graphics.TEXT_JUSTIFY_CENTER);
         }
-        // статус GPS (диагностика Gate 4): 0 нет .. 4 отлично
-        dc.drawText(cx, 16, Graphics.FONT_XTINY, "GPS " + ns.gpsAcc.toString(), Graphics.TEXT_JUSTIFY_CENTER);
 
         // следующий манёвр + анонс: одна короткая вибрация за 50 м (раз на манёвр)
         var nm = route.nextManeuver(trav);
@@ -152,6 +151,10 @@ class NavView extends WatchUi.View {
         // нижнее поле NNN/YY
         dc.drawText(cx, H - 34, Graphics.FONT_MEDIUM,
             fmtDist(dTo) + "/" + (rem / 1000.0).format("%.1f"),
+            Graphics.TEXT_JUSTIFY_CENTER);
+        // диагностика GPS (Gate 4, низ по центру — не под субэкраном): a<0..4> +/- позиция
+        dc.drawText(cx, H - 13, Graphics.FONT_XTINY,
+            "GPS a" + ns.gpsAcc.toString() + (ns.gpsHasPos ? " +" : " -"),
             Graphics.TEXT_JUSTIFY_CENTER);
 
         // Субэкран: по умолчанию пеленг (основное). На WARN_HOLD за 50 м до поворота —
