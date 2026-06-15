@@ -156,11 +156,11 @@ class NavView extends WatchUi.View {
         dc.drawText(cx, H - 34, Graphics.FONT_MEDIUM,
             fmtDist(dTo) + "/" + (rem / 1000.0).format("%.1f"),
             Graphics.TEXT_JUSTIFY_CENTER);
-        // диагностика GPS (Gate 4, низ по центру): a<0..4> +/-поз R<запись> e<события>
-        dc.drawText(cx, H - 13, Graphics.FONT_XTINY,
+        // диагностика GPS (Gate 4, слева-сверху — не под субэкраном и не у скруглённого низа)
+        dc.drawText(6, 40, Graphics.FONT_XTINY,
             "a" + ns.gpsAcc.toString() + (ns.gpsHasPos ? "+" : "-")
                 + " R" + (ns.rec ? "1" : "0") + " e" + ns.events.toString(),
-            Graphics.TEXT_JUSTIFY_CENTER);
+            Graphics.TEXT_JUSTIFY_LEFT);
 
         // Субэкран: по умолчанию пеленг (основное). На WARN_HOLD за 50 м до поворота —
         // схематичный тип манёвра (плавно/90/резко из type), потом снова пеленг.

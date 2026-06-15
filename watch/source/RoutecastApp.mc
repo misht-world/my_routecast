@@ -72,24 +72,22 @@ class RoutecastApp extends Application.AppBase {
         if (receiver.state != :ready) { return; }
         navState = new NavState(new RouteModel(receiver.points, receiver.maneuvers));
         navState.demo = Cfg.DEMO_MOVE; // в симуляторе едем сами; реальный GPS перебьёт
-        startSession(); // поднять GPS-антенну
-        Position.enableLocationEvents(Position.LOCATION_CONTINUOUS, method(:onPosition));
+        startSession(); // поднять GPS-антенну (enableLocationEvents уже сделан в onStart — НЕ повторяем)
         WatchUi.pushView(new NavView(navState), new NavDelegate(navState), WatchUi.SLIDE_LEFT);
     }
 
-    // Пауза/возобновление навигации (подменю BACK).
+    // Пауза/возобновление — только UI-флаг (ns.paused). GPS НЕ трогаем
+    // (повторный enable/disable ломает доставку колбэка — см. forum).
     function pauseNavigation() {
-        Position.enableLocationEvents(Position.LOCATION_DISABLE, method(:onPosition));
     }
 
     function resumeNavigation() {
-        Position.enableLocationEvents(Position.LOCATION_CONTINUOUS, method(:onPosition));
     }
 
-    // Завершение: выключаем GPS, отбрасываем сессию и ОЧИЩАЕМ маршрут -> IDLE.
+    // Завершение: отбрасываем сессию и ОЧИЩАЕМ маршрут -> IDLE.
+    // Регистрацию позиции НЕ снимаем (она одна, на весь жизненный цикл аппа).
     function finishNavigation() {
         endSession();
-        Position.enableLocationEvents(Position.LOCATION_DISABLE, method(:onPosition));
         receiver.reset();
         receiver.state = :idle;
         navState = null;
