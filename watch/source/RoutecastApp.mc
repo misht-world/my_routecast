@@ -18,6 +18,10 @@ class RoutecastApp extends Application.AppBase {
     function onStart(state) {
         Communications.registerForPhoneAppMessages(method(:onPhone));
         if (Cfg.DEMO_AUTOLOAD) { MockFeeder.feed(receiver); } // без телефона — сразу обзор
+        // на железе — поднимаем GPS заранее (прогрев), движение берём из реального приёмника
+        if (!Cfg.DEMO_MOVE) {
+            Position.enableLocationEvents(Position.LOCATION_CONTINUOUS, method(:onPosition));
+        }
     }
 
     function onStop(state) {

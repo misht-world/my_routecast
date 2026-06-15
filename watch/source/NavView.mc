@@ -4,6 +4,7 @@ using Toybox.Math;
 using Toybox.Attention;
 using Toybox.System;
 using Toybox.Timer;
+using Toybox.Position;
 
 // Отрисовка навигации heading-up (SPEC §5.4–5.5), монохром, один тон.
 class NavView extends WatchUi.View {
@@ -33,15 +34,27 @@ class NavView extends WatchUi.View {
         if (timer != null) { timer.stop(); }
     }
 
-    // Демо-движение по маршруту (когда нет GPS-плеера).
+    // Демо-движение, либо опрос реального GPS (надёжнее, чем только колбэк событий).
     function onTick() as Void {
-        if (ns.demo && !ns.paused && !ns.arrived) {
-            ns.demoDist += DEMO_STEP;
-            var p = ns.route.pointAtDist(ns.demoDist);
-            var hdg = ns.route.headingAtDist(ns.demoDist);
-            ns.setFix(p[0], p[1], hdg);
-            WatchUi.requestUpdate();
+        if (ns.demo) {
+            if (!ns.paused && !ns.arrived) {
+                ns.demoDist += DEMO_STEP;
+                var p = ns.route.pointAtDist(ns.demoDist);
+                var hdg = ns.route.headingAtDist(ns.demoDist);
+                ns.setFix(p[0], p[1], hdg);
+                WatchUi.requestUpdate();
+            }
+            return;
         }
+        var info = Position.getInfo();
+        if (info != null) {
+            ns.gpsAcc = (info.accuracy != null) ? info.accuracy : 0;
+            if (info.position != null && ns.gpsAcc >= 2) { // POOR и лучше
+                var d = info.position.toDegrees();
+                ns.setFix((d[0] * 1000000).toNumber(), (d[1] * 1000000).toNumber(), info.heading);
+            }
+        }
+        WatchUi.requestUpdate();
     }
 
     function onUpdate(dc) {
@@ -119,6 +132,8 @@ class NavView extends WatchUi.View {
         if (ns.paused) {
             dc.drawText(cx, 2, Graphics.FONT_XTINY, "PAUSE", Graphics.TEXT_JUSTIFY_CENTER);
         }
+        // статус GPS (диагностика Gate 4): 0 нет .. 4 отлично
+        dc.drawText(cx, 16, Graphics.FONT_XTINY, "GPS " + ns.gpsAcc.toString(), Graphics.TEXT_JUSTIFY_CENTER);
 
         // следующий манёвр + анонс: одна короткая вибрация за 50 м (раз на манёвр)
         var nm = route.nextManeuver(trav);

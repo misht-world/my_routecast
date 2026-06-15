@@ -19,6 +19,7 @@ class NavState {
     var offBuzzed;    // вибро схода с маршрута уже дано
     var demo;         // встроенный демо-прогон (движение по таймеру)
     var demoDist;     // пройдено в демо, метры
+    var gpsAcc;       // качество GPS (Position.Quality: 0 нет .. 4 отлично)
 
     function initialize(routeModel) {
         route = routeModel;
@@ -34,6 +35,7 @@ class NavState {
         offBuzzed = false;
         demo = false;
         demoDist = 0.0;
+        gpsAcc = 0;
         // до GPS-фикса «я» — старт маршрута (чтобы линия была видна сразу)
         meLatMicro = route.pts[0][0];
         meLonMicro = route.pts[0][1];
