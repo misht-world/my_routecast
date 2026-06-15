@@ -22,6 +22,23 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    // Тип CIQ-подключения — билд-флаг (SPEC §4.4): hw=WIRELESS (через GCM), sim=TETHERED (adb).
+    flavorDimensions += "link"
+    productFlavors {
+        create("hw") {
+            dimension = "link"
+            buildConfigField("String", "CIQ_CONNECT_TYPE", "\"WIRELESS\"")
+        }
+        create("sim") {
+            dimension = "link"
+            buildConfigField("String", "CIQ_CONNECT_TYPE", "\"TETHERED\"")
+        }
+    }
 }
 
 dependencies {

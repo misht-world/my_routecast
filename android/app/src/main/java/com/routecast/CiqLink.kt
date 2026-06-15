@@ -32,9 +32,14 @@ class CiqLink(
     var onNack: ((Int) -> Unit)? = null
 
     fun start() {
-        val c = ConnectIQ.getInstance(ctx, ConnectIQ.IQConnectType.TETHERED)
+        val type = if (BuildConfig.CIQ_CONNECT_TYPE == "WIRELESS") {
+            ConnectIQ.IQConnectType.WIRELESS
+        } else {
+            ConnectIQ.IQConnectType.TETHERED
+        }
+        val c = ConnectIQ.getInstance(ctx, type)
         ciq = c
-        log("init SDK (TETHERED)…")
+        log("init SDK (${BuildConfig.CIQ_CONNECT_TYPE})…")
         c.initialize(ctx, true, object : ConnectIQ.ConnectIQListener {
             override fun onSdkReady() {
                 log("SDK ready")

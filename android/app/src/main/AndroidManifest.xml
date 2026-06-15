@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Видимость Garmin Connect Mobile (Android 11+ package visibility) для WIRELESS-канала -->
+    <queries>
+        <package android:name="com.garmin.android.apps.connectmobile" />
+    </queries>
+
     <application
         android:allowBackup="false"
         android:label="my_routecast"
