@@ -56,7 +56,9 @@ class NavView extends WatchUi.View {
             ns.gpsHasPos = (info.position != null);
             if (info.position != null && ns.gpsAcc >= 2) { // POOR и лучше
                 var d = info.position.toDegrees();
-                ns.setFix((d[0] * 1000000).toNumber(), (d[1] * 1000000).toNumber(), info.heading);
+                var spd = (info.speed != null) ? info.speed : 0.0;
+                var hdg = (info.heading != null && spd > 1.0) ? info.heading : null; // курс только в движении
+                ns.setFix((d[0] * 1000000).toNumber(), (d[1] * 1000000).toNumber(), hdg);
             }
         }
         WatchUi.requestUpdate();

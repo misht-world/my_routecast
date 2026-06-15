@@ -47,10 +47,17 @@ class NavState {
         meLonMicro = route.pts[0][1];
     }
 
+    // Позицию сглаживаем (низкочастотный фильтр) — гасим дрожь слабого GPS.
+    // Курс обновляем только если передан (hdg != null) — вызывающий даёт его лишь в движении.
     function setFix(latMicro, lonMicro, hdg) {
-        meLatMicro = latMicro;
-        meLonMicro = lonMicro;
-        headingRad = hdg;
+        if (hasFix && !demo) {
+            meLatMicro = (meLatMicro * 7 + latMicro * 3) / 10;
+            meLonMicro = (meLonMicro * 7 + lonMicro * 3) / 10;
+        } else {
+            meLatMicro = latMicro;
+            meLonMicro = lonMicro;
+        }
+        if (hdg != null) { headingRad = hdg; }
         hasFix = true;
     }
 
