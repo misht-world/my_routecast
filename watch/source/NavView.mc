@@ -5,6 +5,7 @@ using Toybox.Attention;
 using Toybox.System;
 using Toybox.Timer;
 using Toybox.Position;
+using Toybox.Application;
 
 // Отрисовка навигации heading-up (SPEC §5.4–5.5), монохром, один тон.
 class NavView extends WatchUi.View {
@@ -46,6 +47,9 @@ class NavView extends WatchUi.View {
             }
             return;
         }
+        var app = Application.getApp() as RoutecastApp;
+        ns.rec = app.isRecording();
+        ns.events = app.posEvents;
         var info = Position.getInfo();
         if (info != null) {
             ns.gpsAcc = (info.accuracy != null) ? info.accuracy : 0;
@@ -152,9 +156,10 @@ class NavView extends WatchUi.View {
         dc.drawText(cx, H - 34, Graphics.FONT_MEDIUM,
             fmtDist(dTo) + "/" + (rem / 1000.0).format("%.1f"),
             Graphics.TEXT_JUSTIFY_CENTER);
-        // диагностика GPS (Gate 4, низ по центру — не под субэкраном): a<0..4> +/- позиция
+        // диагностика GPS (Gate 4, низ по центру): a<0..4> +/-поз R<запись> e<события>
         dc.drawText(cx, H - 13, Graphics.FONT_XTINY,
-            "GPS a" + ns.gpsAcc.toString() + (ns.gpsHasPos ? " +" : " -"),
+            "a" + ns.gpsAcc.toString() + (ns.gpsHasPos ? "+" : "-")
+                + " R" + (ns.rec ? "1" : "0") + " e" + ns.events.toString(),
             Graphics.TEXT_JUSTIFY_CENTER);
 
         // Субэкран: по умолчанию пеленг (основное). На WARN_HOLD за 50 м до поворота —

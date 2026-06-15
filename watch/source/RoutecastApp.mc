@@ -11,12 +11,14 @@ class RoutecastApp extends Application.AppBase {
     var receiver;
     var navState;
     var session; // ActivityRecording — нужна, чтобы поднять GPS-антенну на железе
+    var posEvents; // сколько раз сработал колбэк onPosition (диагностика)
 
     function initialize() {
         AppBase.initialize();
         receiver = new RouteReceiver();
         navState = null;
         session = null;
+        posEvents = 0;
     }
 
     function onStart(state) {
@@ -94,14 +96,22 @@ class RoutecastApp extends Application.AppBase {
     }
 
     function onPosition(info as Position.Info) as Void {
-        if (navState == null) { return; }
-        if (info.position != null) {
-            var d = info.position.toDegrees();
-            var hdg = info.heading;
-            navState.demo = false; // пришёл реальный GPS — демо больше не нужно
-            navState.setFix((d[0] * 1000000).toNumber(), (d[1] * 1000000).toNumber(), hdg);
-            WatchUi.requestUpdate();
+        posEvents += 1;
+        if (navState != null) {
+            navState.gpsAcc = (info.accuracy != null) ? info.accuracy : 0;
+            navState.gpsHasPos = (info.position != null);
+            if (info.position != null) {
+                var d = info.position.toDegrees();
+                navState.demo = false; // пришёл реальный GPS — демо больше не нужно
+                navState.setFix((d[0] * 1000000).toNumber(), (d[1] * 1000000).toNumber(), info.heading);
+            }
         }
+        WatchUi.requestUpdate();
+    }
+
+    function isRecording() {
+        if (session == null) { return false; }
+        try { return session.isRecording(); } catch (e) { return false; }
     }
 
     function getInitialView() {
