@@ -219,7 +219,7 @@ class NavView extends WatchUi.View {
         var sharp = type < 0 ? -type : type;
         var deg = (sharp == 1) ? 35.0 : ((sharp == 2) ? 90.0 : 135.0);
         var bend = -(type < 0 ? -1.0 : 1.0) * deg * Math.PI / 180.0; // type>0 право -> bend<0
-        drawTurnArrow(dc, scx, scy, bend, 0.5);
+        drawTurnArrow(dc, scx, scy, bend, 0.72);
     }
 
     // Гнутая стрелка поворота: древко вверх + плечо по углу + наконечник. scale под размер.
@@ -231,11 +231,11 @@ class NavView extends WatchUi.View {
         var sa = Math.sin(armAngle);
         var ex = cx + ca * arm;
         var ey = cy + sa * arm;
-        dc.setPenWidth((7 * scale + 1).toNumber());
+        dc.setPenWidth((8 * scale + 1).toNumber());
         dc.drawLine(cx, cy + sh, cx, cy);
         dc.drawLine(cx, cy, ex, ey);
-        var hl = 18 * scale;
-        var hw = 9 * scale;
+        var hl = 15 * scale;
+        var hw = 12 * scale; // шире наконечник — читаемее на мелком субэкране
         var bx = ex - ca * hl;
         var by = ey - sa * hl;
         var px = -sa;

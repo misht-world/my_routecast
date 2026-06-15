@@ -6,7 +6,7 @@
         id="ff29cc6fbfa14e068ac304f39e8aa45b"
         launcherIcon="@Drawables.LauncherIcon"
         name="@Strings.AppName"
-        type="widget"
+        type="watch-app"
         minApiLevel="3.2.0">
         <iq:products>
             <iq:product id="instinct3solar45mm"/>
