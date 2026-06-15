@@ -2,17 +2,21 @@ using Toybox.Application;
 using Toybox.Communications;
 using Toybox.Position;
 using Toybox.WatchUi;
+using Toybox.ActivityRecording;
+using Toybox.Activity;
 
 // Точка входа виджета. Регистрирует mailbox-listener, держит RouteReceiver и навигацию.
 class RoutecastApp extends Application.AppBase {
 
     var receiver;
     var navState;
+    var session; // ActivityRecording — нужна, чтобы поднять GPS-антенну на железе
 
     function initialize() {
         AppBase.initialize();
         receiver = new RouteReceiver();
         navState = null;
+        session = null;
     }
 
     function onStart(state) {
@@ -25,6 +29,33 @@ class RoutecastApp extends Application.AppBase {
     }
 
     function onStop(state) {
+        endSession();
+    }
+
+    // Старт сессии записи — именно это включает GPS-приёмник для CIQ-аппа.
+    // Сессию НЕ сохраняем (discard при выходе) — никаких лишних активностей.
+    function startSession() {
+        if (session != null || Cfg.DEMO_MOVE) { return; }
+        try {
+            session = ActivityRecording.createSession({
+                :name => "RouteCast",
+                :sport => Activity.SPORT_HIKING
+            });
+            session.start();
+        } catch (e) {
+            session = null;
+        }
+    }
+
+    function endSession() {
+        if (session != null) {
+            try {
+                if (session.isRecording()) { session.stop(); }
+                session.discard();
+            } catch (e) {
+            }
+            session = null;
+        }
     }
 
     // Сообщение с телефона: msg.data — Dictionary протокола (см. docs/protocol.md).
@@ -39,6 +70,7 @@ class RoutecastApp extends Application.AppBase {
         if (receiver.state != :ready) { return; }
         navState = new NavState(new RouteModel(receiver.points, receiver.maneuvers));
         navState.demo = Cfg.DEMO_MOVE; // в симуляторе едем сами; реальный GPS перебьёт
+        startSession(); // поднять GPS-антенну
         Position.enableLocationEvents(Position.LOCATION_CONTINUOUS, method(:onPosition));
         WatchUi.pushView(new NavView(navState), new NavDelegate(navState), WatchUi.SLIDE_LEFT);
     }
@@ -52,8 +84,9 @@ class RoutecastApp extends Application.AppBase {
         Position.enableLocationEvents(Position.LOCATION_CONTINUOUS, method(:onPosition));
     }
 
-    // Завершение: выключаем GPS и ОЧИЩАЕМ маршрут (минимум следов) -> IDLE.
+    // Завершение: выключаем GPS, отбрасываем сессию и ОЧИЩАЕМ маршрут -> IDLE.
     function finishNavigation() {
+        endSession();
         Position.enableLocationEvents(Position.LOCATION_DISABLE, method(:onPosition));
         receiver.reset();
         receiver.state = :idle;
