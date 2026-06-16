@@ -6,6 +6,7 @@ using Toybox.System;
 using Toybox.Timer;
 using Toybox.Position;
 using Toybox.Application;
+using Toybox.Sensor;
 
 // Отрисовка навигации heading-up (SPEC §5.4–5.5), монохром, один тон.
 class NavView extends WatchUi.View {
@@ -15,6 +16,7 @@ class NavView extends WatchUi.View {
     const TURN_WARN_M = 50.0;
     const TURN_NOW_M = 10.0;
     const OFFROUTE_M = 40.0;
+    const OFFROUTE_T_MS = 5000; // выдержка off-route, мс
     const WARN_HOLD = 2500; // мс — окно показа типа поворота в субэкране
     const DEMO_STEP = 5.0;  // м за тик демо
 
@@ -50,15 +52,20 @@ class NavView extends WatchUi.View {
         var app = Application.getApp() as RoutecastApp;
         ns.rec = app.isRecording();
         ns.events = app.posEvents;
+
+        // Курс: компас стоя / GPS в движении (Sensor сам выбирает лучший источник).
+        var sInfo = Sensor.getInfo();
+        if (sInfo != null && sInfo.heading != null) {
+            ns.headingRad = sInfo.heading;
+        }
+
         var info = Position.getInfo();
         if (info != null) {
             ns.gpsAcc = (info.accuracy != null) ? info.accuracy : 0;
             ns.gpsHasPos = (info.position != null);
             if (info.position != null && ns.gpsAcc >= 2) { // POOR и лучше
                 var d = info.position.toDegrees();
-                var spd = (info.speed != null) ? info.speed : 0.0;
-                var hdg = (info.heading != null && spd > 1.0) ? info.heading : null; // курс только в движении
-                ns.setFix((d[0] * 1000000).toNumber(), (d[1] * 1000000).toNumber(), hdg);
+                ns.setFix((d[0] * 1000000).toNumber(), (d[1] * 1000000).toNumber(), null);
             }
         }
         WatchUi.requestUpdate();
@@ -90,7 +97,14 @@ class NavView extends WatchUi.View {
             return;
         }
 
-        var offRoute = crossM > OFFROUTE_M;
+        // off-route с выдержкой по времени (OFFROUTE_T) — гасим шумовые срабатывания
+        var rawOff = crossM > OFFROUTE_M;
+        if (rawOff) {
+            if (ns.offSince == 0) { ns.offSince = System.getTimer(); }
+        } else {
+            ns.offSince = 0;
+        }
+        var offRoute = rawOff && (System.getTimer() - ns.offSince) >= OFFROUTE_T_MS;
         if (offRoute) {
             if (!ns.offBuzzed) { ns.offBuzzed = true; vibeOnce(); }
         } else {

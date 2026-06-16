@@ -100,10 +100,9 @@ class RoutecastApp extends Application.AppBase {
             navState.gpsHasPos = (info.position != null);
             if (info.position != null) {
                 var d = info.position.toDegrees();
-                var spd = (info.speed != null) ? info.speed : 0.0;
-                var hdg = (info.heading != null && spd > 1.0) ? info.heading : null; // курс только в движении
                 navState.demo = false; // пришёл реальный GPS — демо больше не нужно
-                navState.setFix((d[0] * 1000000).toNumber(), (d[1] * 1000000).toNumber(), hdg);
+                navState.setFix((d[0] * 1000000).toNumber(), (d[1] * 1000000).toNumber(), null);
+                // курс ставит NavView из Sensor (компас стоя / GPS в движении)
             }
         }
         WatchUi.requestUpdate();
