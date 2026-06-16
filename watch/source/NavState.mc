@@ -18,6 +18,7 @@ class NavState {
     var nowIdx;       // idx манёвра, на котором уже дано вибро «сейчас»
     var offBuzzed;    // вибро схода с маршрута уже дано
     var offSince;     // System.getTimer() начала схода (0 — на маршруте); выдержка по времени
+    var lastTraveled; // текущий прогресс по маршруту, м (для оконного поиска ближайшего)
     var demo;         // встроенный демо-прогон (движение по таймеру)
     var demoDist;     // пройдено в демо, метры
     var gpsAcc;       // качество GPS (Position.Quality: 0 нет .. 4 отлично)
@@ -38,6 +39,7 @@ class NavState {
         nowIdx = -1;
         offBuzzed = false;
         offSince = 0;
+        lastTraveled = 0.0;
         demo = false;
         demoDist = 0.0;
         gpsAcc = 0;

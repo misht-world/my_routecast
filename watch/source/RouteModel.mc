@@ -93,6 +93,43 @@ class RouteModel {
         return cum[idx];
     }
 
+    // Ближайший сегмент, но ТОЛЬКО в окне дистанций [fromDist, toDist] вдоль маршрута —
+    // чтобы на возвратных/петлевых маршрутах не «прилипать» к далёкой ветке рядом со стартом.
+    function nearestWindowed(latMicro, lonMicro, fromDist, toDist) {
+        var p = toXY(latMicro, lonMicro);
+        var bestD = 1.0e30;
+        var bestSeg = -1;
+        var bestT = 0.0;
+        var bestTrav = 0.0;
+        for (var i = 0; i < pts.size() - 1; i++) {
+            if (cum[i + 1] < fromDist || cum[i] > toDist) { continue; } // сегмент вне окна
+            var a = toXY(pts[i][0], pts[i][1]);
+            var b = toXY(pts[i + 1][0], pts[i + 1][1]);
+            var dx = b[0] - a[0];
+            var dy = b[1] - a[1];
+            var len2 = dx * dx + dy * dy;
+            var t = 0.0;
+            if (len2 > 0.0) {
+                t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len2;
+                if (t < 0.0) { t = 0.0; }
+                if (t > 1.0) { t = 1.0; }
+            }
+            var cx = a[0] + t * dx;
+            var cy = a[1] + t * dy;
+            var ddx = p[0] - cx;
+            var ddy = p[1] - cy;
+            var d = Math.sqrt(ddx * ddx + ddy * ddy);
+            if (d < bestD) {
+                bestD = d;
+                bestSeg = i;
+                bestT = t;
+                bestTrav = cum[i] + t * (cum[i + 1] - cum[i]);
+            }
+        }
+        if (bestSeg < 0) { return nearest(latMicro, lonMicro); } // окно пустое — полный поиск
+        return [bestSeg, bestT, bestD, bestTrav];
+    }
+
     // Первый манёвр впереди текущего traveledM (с небольшим допуском).
     function nextManeuver(traveledM) {
         for (var i = 0; i < maneuvers.size(); i++) {

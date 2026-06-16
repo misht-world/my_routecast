@@ -82,10 +82,13 @@ class NavView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
 
         var route = ns.route;
-        var near = route.nearest(ns.meLatMicro, ns.meLonMicro);
+        // оконный поиск ближайшего сегмента — не «прилипаем» к возвратной ветке у старта
+        var near = route.nearestWindowed(ns.meLatMicro, ns.meLonMicro,
+            ns.lastTraveled - 30.0, ns.lastTraveled + 60.0);
         var segIdx = near[0];
         var crossM = near[2];
         var trav = near[3];
+        ns.lastTraveled = trav;
         var rem = route.totalM() - trav;
         if (rem < 0.0) { rem = 0.0; }
 
