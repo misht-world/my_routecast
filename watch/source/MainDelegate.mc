@@ -14,8 +14,8 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
     function onSelect() {
         if (r.state == :ready) {
             (Application.getApp() as RoutecastApp).startNavigation();
-        } else {
-            MockFeeder.feed(r);
+        } else if (Cfg.DEMO_AUTOLOAD) {
+            MockFeeder.feed(r); // только в демо — на железе ждём маршрут с телефона
         }
         WatchUi.requestUpdate();
         return true;
