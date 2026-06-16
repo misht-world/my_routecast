@@ -27,6 +27,7 @@ class RoutecastApp extends Application.AppBase {
         // на железе — поднимаем GPS заранее (прогрев), движение берём из реального приёмника
         if (!Cfg.DEMO_MOVE) {
             Position.enableLocationEvents(Position.LOCATION_CONTINUOUS, method(:onPosition));
+            startSession(); // антенну реально греет сессия — стартуем с открытия аппа, не ждём маршрута
         }
     }
 
