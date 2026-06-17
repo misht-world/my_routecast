@@ -8,6 +8,7 @@ class NavState {
     var meLatMicro;
     var meLonMicro;
     var headingRad;   // Float или null (нет курса с GPS)
+    var headingBias;  // поправка «компас -> истинный север», набирается по GPS-курсу в движении
     var hasFix;
     var zoom;         // 0..2, по умолчанию средний
     var arrived;      // достигнут финиш
@@ -31,6 +32,7 @@ class NavState {
         hasFix = false;
         zoom = 1;
         headingRad = null;
+        headingBias = 0.0;
         arrived = false;
         vibedArrival = false;
         paused = false;

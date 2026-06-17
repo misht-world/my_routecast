@@ -57,20 +57,24 @@ class NavView extends WatchUi.View {
         if (info != null) {
             ns.gpsAcc = (info.accuracy != null) ? info.accuracy : 0;
             ns.gpsHasPos = (info.position != null);
-            // Курс: в движении — course-over-ground из GPS (не зависит от наклона руки),
-            // стоя — магнитный компас (его стоит откалибровать на часах).
+            // Курс. В движении — course-over-ground из GPS (истинный, не зависит от наклона руки);
+            // заодно копим поправку bias = GPS−компас. Стоя — компас+bias: живое вращение
+            // от компаса, но абсолютный «север» подтянут к GPS (компас на этом корпусе абс. врёт).
             var spd = (info.speed != null) ? info.speed : 0.0;
+            var sInfo = Sensor.getInfo();
+            var ch = (sInfo != null) ? sInfo.heading : null;
             if (spd >= MOVING_SPD && info.heading != null) {
                 ns.headingRad = info.heading;
-            } else {
-                var sInfo = Sensor.getInfo();
-                if (sInfo != null && sInfo.heading != null) {
-                    ns.headingRad = sInfo.heading;
+                if (ch != null) {
+                    var d = normRad(info.heading - ch);
+                    ns.headingBias = ns.headingBias + 0.25 * normRad(d - ns.headingBias);
                 }
+            } else if (ch != null) {
+                ns.headingRad = ch + ns.headingBias;
             }
             if (info.position != null && ns.gpsAcc >= 2) { // POOR и лучше
-                var d = info.position.toDegrees();
-                ns.setFix((d[0] * 1000000).toNumber(), (d[1] * 1000000).toNumber(), null);
+                var d2 = info.position.toDegrees();
+                ns.setFix((d2[0] * 1000000).toNumber(), (d2[1] * 1000000).toNumber(), null);
             }
         }
         WatchUi.requestUpdate();
@@ -288,6 +292,14 @@ class NavView extends WatchUi.View {
         var px = -sa;
         var py = ca;
         dc.fillPolygon([[ex, ey], [bx + px * hw, by + py * hw], [bx - px * hw, by - py * hw]]);
+    }
+
+    // Нормировка угла (рад) в [−π, π] — для корректной разности курсов.
+    function normRad(a) {
+        var x = a;
+        while (x > Math.PI) { x -= 2.0 * Math.PI; }
+        while (x < -Math.PI) { x += 2.0 * Math.PI; }
+        return x;
     }
 
     function fmtDist(m) {
