@@ -13,12 +13,12 @@ class NavView extends WatchUi.View {
 
     const LOOKAHEAD = 40.0;
     const ARRIVE_M = 20.0;
-    const TURN_WARN_M = 50.0;
-    const TURN_NOW_M = 10.0;
-    const OFFROUTE_M = 40.0;
+    const TURN_WARN_M = 25.0;
+    const OFFROUTE_M = 15.0;
     const OFFROUTE_T_MS = 5000; // выдержка off-route, мс
     const WARN_HOLD = 2500; // мс — окно показа типа поворота в субэкране
     const DEMO_STEP = 5.0;  // м за тик демо
+    const MOVING_SPD = 1.0; // м/с — выше этого считаем «в движении» -> курс из GPS, не компас
 
     var ns;
     var timer;
@@ -53,16 +53,21 @@ class NavView extends WatchUi.View {
         ns.rec = app.isRecording();
         ns.events = app.posEvents;
 
-        // Курс: компас стоя / GPS в движении (Sensor сам выбирает лучший источник).
-        var sInfo = Sensor.getInfo();
-        if (sInfo != null && sInfo.heading != null) {
-            ns.headingRad = sInfo.heading;
-        }
-
         var info = Position.getInfo();
         if (info != null) {
             ns.gpsAcc = (info.accuracy != null) ? info.accuracy : 0;
             ns.gpsHasPos = (info.position != null);
+            // Курс: в движении — course-over-ground из GPS (не зависит от наклона руки),
+            // стоя — магнитный компас (его стоит откалибровать на часах).
+            var spd = (info.speed != null) ? info.speed : 0.0;
+            if (spd >= MOVING_SPD && info.heading != null) {
+                ns.headingRad = info.heading;
+            } else {
+                var sInfo = Sensor.getInfo();
+                if (sInfo != null && sInfo.heading != null) {
+                    ns.headingRad = sInfo.heading;
+                }
+            }
             if (info.position != null && ns.gpsAcc >= 2) { // POOR и лучше
                 var d = info.position.toDegrees();
                 ns.setFix((d[0] * 1000000).toNumber(), (d[1] * 1000000).toNumber(), null);
