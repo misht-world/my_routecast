@@ -1,0 +1,27 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- линия маршрута (heading-up): снизу вверх с поворотом -->
+    <path
+        android:pathData="M38,84 L38,58 L68,58 L68,40"
+        android:fillColor="#00000000"
+        android:strokeColor="#4CAF50"
+        android:strokeWidth="9"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- финиш-кольцо -->
+    <path
+        android:pathData="M68,34 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5" />
+
+    <!-- стрелка «я» (направление движения) -->
+    <path
+        android:pathData="M38,70 L29,92 L47,92 Z"
+        android:fillColor="#FF7043" />
+</vector>

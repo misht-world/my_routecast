@@ -24,6 +24,9 @@ class MainActivity : Activity() {
     private var ciqLink: CiqLink? = null
     private var lastEnc: Encoder.Encoded? = null
     private var transfer: Transfer? = null
+    private var watchReady = false      // часы найдены и watch-апп установлен
+    private var autoSendPending = false // маршрут пришёл через share -> отправить, как будем готовы
+    private var sending = false         // идёт передача (защита от двойного старта)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -81,8 +84,22 @@ class MainActivity : Activity() {
             Intent.ACTION_VIEW -> intent.data
             else -> null
         }
-        if (uri != null) { process(uri); return true }
+        if (uri != null) {
+            process(uri)
+            // Маршрут пришёл через "Поделиться" -> отправляем на часы автоматически.
+            if (lastEnc != null) { autoSendPending = true; maybeAutoSend() }
+            return true
+        }
         return false
+    }
+
+    /** Если маршрут готов и часы на связи — отправляем без ручного тапа. */
+    private fun maybeAutoSend() {
+        if (autoSendPending && watchReady && !sending && lastEnc != null) {
+            autoSendPending = false
+            out.append("авто-отправка на часы…\n")
+            sendToWatch()
+        }
     }
 
     private fun process(uri: Uri) {
@@ -99,6 +116,7 @@ class MainActivity : Activity() {
 
     private fun connectWatch() {
         out.append("\n--- Connect IQ ---\n")
+        watchReady = false
         ciqLink?.stop()
         val link = CiqLink(this, Config.WATCH_APP_ID_HEX) { line ->
             runOnUiThread {
@@ -106,7 +124,13 @@ class MainActivity : Activity() {
                 Log.i("routecast", line)
             }
         }
-        link.onReady = { runOnUiThread { out.append("ready to send → tap Send to watch\n") } }
+        link.onReady = {
+            runOnUiThread {
+                watchReady = true
+                out.append("часы на связи\n")
+                maybeAutoSend()
+            }
+        }
         ciqLink = link
         link.start()
     }
@@ -116,14 +140,16 @@ class MainActivity : Activity() {
         val link = ciqLink
         if (enc == null) { out.append("сначала загрузите маршрут\n"); return }
         if (link == null) { out.append("сначала Connect to watch\n"); return }
+        if (sending) { out.append("передача уже идёт…\n"); return }
+        sending = true
         link.openApp()
         val packets = MessageBuilder.build(enc)
         out.append("→ передаю ${packets.size} пакетов…\n")
         transfer = Transfer(
             link, packets,
             onProgress = { sent, total -> runOnUiThread { out.append("  ack $sent/$total\n") } },
-            onDone = { runOnUiThread { out.append("✓ маршрут передан\n") } },
-            onError = { msg -> runOnUiThread { out.append("✗ $msg\n") } }
+            onDone = { runOnUiThread { sending = false; out.append("✓ маршрут передан\n") } },
+            onError = { msg -> runOnUiThread { sending = false; out.append("✗ $msg\n") } }
         ).also { it.start() }
     }
 
