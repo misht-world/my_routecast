@@ -12,13 +12,14 @@ using Toybox.Sensor;
 class NavView extends WatchUi.View {
 
     const LOOKAHEAD = 40.0;
-    const ARRIVE_M = 20.0;
+    const ARRIVE_M = 8.0;
     const TURN_WARN_M = 25.0;
     const OFFROUTE_M = 15.0;
     const OFFROUTE_T_MS = 5000; // выдержка off-route, мс
     const WARN_HOLD = 2500; // мс — окно показа типа поворота в субэкране
     const DEMO_STEP = 5.0;  // м за тик демо
     const MOVING_SPD = 1.0; // м/с — выше этого считаем «в движении» -> курс из GPS, не компас
+    const HEAD_SMOOTH = 0.2; // сглаживание курса (0..1): меньше — плавнее, но ленивее
 
     var ns;
     var timer;
@@ -63,14 +64,23 @@ class NavView extends WatchUi.View {
             var spd = (info.speed != null) ? info.speed : 0.0;
             var sInfo = Sensor.getInfo();
             var ch = (sInfo != null) ? sInfo.heading : null;
+            var target = null;
             if (spd >= MOVING_SPD && info.heading != null) {
-                ns.headingRad = info.heading;
+                target = info.heading;
                 if (ch != null) {
                     var d = normRad(info.heading - ch);
                     ns.headingBias = ns.headingBias + 0.25 * normRad(d - ns.headingBias);
                 }
             } else if (ch != null) {
-                ns.headingRad = ch + ns.headingBias;
+                target = ch + ns.headingBias;
+            }
+            // Сглаживаем курс по кратчайшей дуге — гасим дрожь GPS/компаса (карта не качается).
+            if (target != null) {
+                if (ns.headingRad == null) {
+                    ns.headingRad = target;
+                } else {
+                    ns.headingRad = ns.headingRad + HEAD_SMOOTH * normRad(target - ns.headingRad);
+                }
             }
             if (info.position != null && ns.gpsAcc >= 2) { // POOR и лучше
                 var d2 = info.position.toDegrees();
