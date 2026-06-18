@@ -38,35 +38,36 @@ object ManeuverDetector {
         val brg = DoubleArray(full.size - 1)
         for (i in 0 until full.size - 1) brg[i] = bearing(full[i], full[i + 1])
 
-        // Нетто-кластеризация: поворотное событие = подряд идущие вершины с |turn| >= MIN_VERTEX,
-        // прерванные прямым участком >= MERGE_DIST. Угол события = сумма знаковых поворотов.
-        val out = ArrayList<Maneuver>()
-        var open = false
-        var acc = 0.0          // нетто-угол события
-        var peakIdx = -1       // вершина с макс |turn| в событии
-        var peakAbs = 0.0
-        var gap = 0.0          // прямая дистанция после последней поворотной вершины
-
+        // Поворотные вершины (|turn| >= MIN_VERTEX) с их знаковым углом.
+        val turns = ArrayList<Pair<Int, Double>>()
         for (i in 1 until full.size - 1) {
             val turn = normalize180(brg[i] - brg[i - 1])
-            val segLen = haversine(full[i], full[i + 1])
-            if (abs(turn) >= Config.MIN_VERTEX_DEG) {
-                if (!open) { open = true; acc = 0.0; peakAbs = 0.0 }
-                acc += turn
-                if (abs(turn) > peakAbs) { peakAbs = abs(turn); peakIdx = i }
-                gap = 0.0
-            } else if (open) {
-                gap += segLen
-                if (gap >= Config.MERGE_DIST_M) {
-                    if (abs(acc) >= Config.TURN_MIN_DEG) {
-                        out.add(makeManeuver(peakIdx, acc, cum, full, decimated))
-                    }
-                    open = false
-                }
-            }
+            if (abs(turn) >= Config.MIN_VERTEX_DEG) turns.add(i to turn)
         }
-        if (open && abs(acc) >= Config.TURN_MIN_DEG) {
-            out.add(makeManeuver(peakIdx, acc, cum, full, decimated))
+
+        // Кластеризация по РАССТОЯНИЮ между поворотными вершинами: пока соседние повороты
+        // ближе MERGE_DIST — это один манёвр (шикана/закругление), их углы складываем; как
+        // только разрыв >= MERGE_DIST — закрываем кластер. Манёвр выдаём при |нетто| >= TURN_MIN.
+        // (Раньше кластер рвался только «прямой» вершиной — на разреженных треках, где каждая
+        //  вершина это поворот, все повороты сливались в один и гасили друг друга.)
+        val out = ArrayList<Maneuver>()
+        var k = 0
+        while (k < turns.size) {
+            var net = turns[k].second
+            var peakIdx = turns[k].first
+            var peakAbs = abs(turns[k].second)
+            var lastIdx = turns[k].first
+            var j = k + 1
+            while (j < turns.size && cum[turns[j].first] - cum[lastIdx] < Config.MERGE_DIST_M) {
+                net += turns[j].second
+                if (abs(turns[j].second) > peakAbs) { peakAbs = abs(turns[j].second); peakIdx = turns[j].first }
+                lastIdx = turns[j].first
+                j++
+            }
+            if (abs(net) >= Config.TURN_MIN_DEG) {
+                out.add(makeManeuver(peakIdx, net, cum, full, decimated))
+            }
+            k = j
         }
 
         // финиш

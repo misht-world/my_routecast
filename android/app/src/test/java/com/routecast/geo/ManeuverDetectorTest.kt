@@ -47,6 +47,22 @@ class ManeuverDetectorTest {
     }
 
     @Test
+    fun separatedTurnsAreNotMerged() {
+        // 4 «ноги» с поворотами ~90° на расстоянии >> MERGE_DIST друг от друга
+        // (как разреженный трек из Organic Maps). Ожидаем 3 поворота + финиш, а не слияние в 0.
+        val pts = ArrayList<Pt>()
+        var lat = 50.0; var lon = 30.0
+        pts.add(Pt(lat, lon))
+        repeat(4) { lon += 1e-4; pts.add(Pt(lat, lon)) } // на восток ~29 м
+        repeat(4) { lat += 1e-4; pts.add(Pt(lat, lon)) } // поворот -> на север ~44 м
+        repeat(4) { lon += 1e-4; pts.add(Pt(lat, lon)) } // поворот -> на восток
+        repeat(4) { lat += 1e-4; pts.add(Pt(lat, lon)) } // поворот -> на север
+        val man = ManeuverDetector.detect(pts, pts)
+        assertEquals("ожидали 3 поворота (не слиплись)", 3, man.count { it.type != 9 })
+        assertEquals(9, man.last().type)
+    }
+
+    @Test
     fun zigzagCrossingIsCancelled() {
         // прямо на восток, короткий зигзаг (переход через дорогу: влево+вправо), снова прямо
         val pts = ArrayList<Pt>()
