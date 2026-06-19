@@ -21,6 +21,9 @@ class MainView extends WatchUi.View {
         dc.clear();
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
 
+        // Версия — сверху по центру (видно во всех состояниях, что переустановилось)
+        dc.drawText(cx, 4, Graphics.FONT_XTINY, Cfg.VERSION, Graphics.TEXT_JUSTIFY_CENTER);
+
         if (r.state == :ready) {
             drawOverview(dc, W, H, cx);
             drawPlay(dc); // ▶ в субэкране
