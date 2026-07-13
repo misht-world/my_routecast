@@ -13,13 +13,13 @@ class NavView extends WatchUi.View {
 
     const LOOKAHEAD = 40.0;
     const ARRIVE_M = 8.0;
-    const TURN_WARN_M = 25.0;
+    const TURN_NOW_M = 8.0;  // вибро В МОМЕНТ поворота (в пределах стольки метров до вершины)
     const OFFROUTE_M = 15.0;
     const OFFROUTE_T_MS = 5000; // выдержка off-route, мс
-    const WARN_HOLD = 2500; // мс — окно показа типа поворота в субэкране
     const DEMO_STEP = 5.0;  // м за тик демо
     const MOVING_SPD = 1.0; // м/с — выше этого считаем «в движении» -> курс из GPS, не компас
     const HEAD_SMOOTH = 0.2; // сглаживание курса (0..1): меньше — плавнее, но ленивее
+    const CULL_MULT = 1.6;  // рисуем только точки в пределах viewMeters*CULL_MULT от позиции
 
     var ns;
     var timer;
@@ -31,7 +31,7 @@ class NavView extends WatchUi.View {
 
     function onShow() {
         timer = new Timer.Timer();
-        timer.start(method(:onTick), 150, true);
+        timer.start(method(:onTick), 200, true);
     }
 
     function onHide() {
@@ -128,7 +128,7 @@ class NavView extends WatchUi.View {
         }
         var offRoute = rawOff && (System.getTimer() - ns.offSince) >= OFFROUTE_T_MS;
         if (offRoute) {
-            if (!ns.offBuzzed) { ns.offBuzzed = true; vibeOnce(); }
+            if (!ns.offBuzzed) { ns.offBuzzed = true; if (ns.signalsOn) { vibeOnce(); } }
         } else {
             ns.offBuzzed = false;
         }
@@ -142,12 +142,18 @@ class NavView extends WatchUi.View {
         var pp = route.pointAtDist(trav);
         var ppS = projectPt(pp, meXY, sinH, cosH, pxPerM, cx, meY);
 
+        // Рисуем ТОЛЬКО точки в окне вокруг позиции (остальные всё равно за экраном).
+        // Это ограничивает работу/аллокации на кадр вне зависимости от длины маршрута.
+        var cull = ns.viewMeters() * CULL_MULT;
+        var n = route.size();
+
         // пройденное — тонкое
         dc.setPenWidth(1);
         var pHave = false;
         var pX = 0.0;
         var pY = 0.0;
         for (var i = 0; i <= segIdx; i++) {
+            if (route.cum[i] < trav - cull) { continue; } // далеко позади — пропускаем
             var s = projectPt(route.pts[i], meXY, sinH, cosH, pxPerM, cx, meY);
             if (pHave) { dc.drawLine(pX, pY, s[0], s[1]); }
             pX = s[0]; pY = s[1]; pHave = true;
@@ -158,17 +164,19 @@ class NavView extends WatchUi.View {
         dc.setPenWidth(offRoute ? 2 : 4);
         var rX = ppS[0];
         var rY = ppS[1];
-        var n = route.size();
         for (var j = segIdx + 1; j < n; j++) {
+            if (route.cum[j] > trav + cull) { break; } // дальше окна впереди — стоп
             var s2 = projectPt(route.pts[j], meXY, sinH, cosH, pxPerM, cx, meY);
             dc.drawLine(rX, rY, s2[0], s2[1]);
             rX = s2[0]; rY = s2[1];
         }
 
-        // финиш-кольцо
-        var fp = projectPt(route.pts[n - 1], meXY, sinH, cosH, pxPerM, cx, meY);
-        dc.setPenWidth(2);
-        dc.drawCircle(fp[0], fp[1], 6);
+        // финиш-кольцо — только если конец близко (иначе за экраном)
+        if (route.cum[n - 1] <= trav + cull) {
+            var fp = projectPt(route.pts[n - 1], meXY, sinH, cosH, pxPerM, cx, meY);
+            dc.setPenWidth(2);
+            dc.drawCircle(fp[0], fp[1], 6);
+        }
 
         // «я»
         dc.fillPolygon([[cx, meY - 11], [cx - 8, meY + 9], [cx + 8, meY + 9]]);
@@ -176,7 +184,7 @@ class NavView extends WatchUi.View {
             dc.drawText(cx, 2, Graphics.FONT_XTINY, "PAUSE", Graphics.TEXT_JUSTIFY_CENTER);
         }
 
-        // следующий манёвр + анонс: одна короткая вибрация за 50 м (раз на манёвр)
+        // следующий манёвр: вибро В МОМЕНТ поворота (не заранее), один раз на манёвр.
         var nm = route.nextManeuver(trav);
         var manDist = (nm != null) ? route.maneuverDistM(nm) : 1.0e9;
         var dTo = manDist - trav;
@@ -184,9 +192,9 @@ class NavView extends WatchUi.View {
         var isFinish = (nm != null) && (nm[1] == 9);
         var manIdx = (nm != null) ? nm[0] : -1;
 
-        if (!offRoute && nm != null && dTo <= TURN_WARN_M && ns.warnIdx != manIdx) {
-            ns.warnIdx = manIdx;
-            ns.warnStart = System.getTimer();
+        if (ns.signalsOn && !offRoute && !isFinish && nm != null
+                && dTo <= TURN_NOW_M && ns.nowIdx != manIdx) {
+            ns.nowIdx = manIdx;
             vibeOnce();
         }
 
@@ -195,15 +203,10 @@ class NavView extends WatchUi.View {
             fmtDist(dTo) + "/" + (rem / 1000.0).format("%.1f"),
             Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Субэкран: по умолчанию пеленг (основное). На WARN_HOLD за 50 м до поворота —
-        // схематичный тип манёвра (плавно/90/резко из type), потом снова пеленг.
-        var showGlyph = (!offRoute && !isFinish && nm != null && ns.warnIdx == manIdx
-            && (System.getTimer() - ns.warnStart) < WARN_HOLD);
+        // Субэкран: всегда пеленг направления (глиф поворота убран — не мешает при ходьбе).
         if (offRoute) {
             drawNeedle(dc, route, meXY, sinH, cosH, pxPerM, cx, meY, trav);
             dc.drawText(cx, H - 58, Graphics.FONT_TINY, "OFF ROUTE", Graphics.TEXT_JUSTIFY_CENTER);
-        } else if (showGlyph) {
-            drawTurnGlyph(dc, nm[1]);
         } else {
             drawNeedle(dc, route, meXY, sinH, cosH, pxPerM, cx, meY, trav + LOOKAHEAD);
         }
@@ -212,7 +215,7 @@ class NavView extends WatchUi.View {
     function drawArrival(dc, cx, H) {
         if (!ns.vibedArrival) {
             ns.vibedArrival = true;
-            vibeOnce();
+            if (ns.signalsOn) { vibeOnce(); }
         }
         dc.drawText(cx, H / 2 - 14, Graphics.FONT_MEDIUM, "Arrived", Graphics.TEXT_JUSTIFY_CENTER);
         dc.drawText(cx, H / 2 + 16, Graphics.FONT_TINY, "BACK to exit", Graphics.TEXT_JUSTIFY_CENTER);
@@ -263,40 +266,6 @@ class NavView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.fillPolygon([[nX, nY], [blX, blY], [brX, brY]]);
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-    }
-
-    // Схематичная стрелка типа манёвра в субэкране (по type: плавно/90/резко + сторона).
-    function drawTurnGlyph(dc, type) {
-        var scx = 144;
-        var scy = 31;
-        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
-        dc.fillCircle(scx, scy, 31);
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        var sharp = type < 0 ? -type : type;
-        var deg = (sharp == 1) ? 35.0 : ((sharp == 2) ? 90.0 : 135.0);
-        var bend = -(type < 0 ? -1.0 : 1.0) * deg * Math.PI / 180.0; // type>0 право -> bend<0
-        drawTurnArrow(dc, scx, scy, bend, 0.72);
-    }
-
-    // Гнутая стрелка поворота: древко вверх + плечо по углу + наконечник. scale под размер.
-    function drawTurnArrow(dc, cx, cy, bendRad, scale) {
-        var armAngle = -Math.PI / 2 - bendRad; // + влево / − вправо (экран y вниз)
-        var sh = 24 * scale;
-        var arm = 28 * scale;
-        var ca = Math.cos(armAngle);
-        var sa = Math.sin(armAngle);
-        var ex = cx + ca * arm;
-        var ey = cy + sa * arm;
-        dc.setPenWidth((8 * scale + 1).toNumber());
-        dc.drawLine(cx, cy + sh, cx, cy);
-        dc.drawLine(cx, cy, ex, ey);
-        var hl = 15 * scale;
-        var hw = 12 * scale; // шире наконечник — читаемее на мелком субэкране
-        var bx = ex - ca * hl;
-        var by = ey - sa * hl;
-        var px = -sa;
-        var py = ca;
-        dc.fillPolygon([[ex, ey], [bx + px * hw, by + py * hw], [bx - px * hw, by - py * hw]]);
     }
 
     // Нормировка угла (рад) в [−π, π] — для корректной разности курсов.

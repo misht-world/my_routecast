@@ -18,6 +18,9 @@ class NavMenuDelegate extends WatchUi.Menu2InputDelegate {
             app.finishNavigation();
             WatchUi.popView(WatchUi.SLIDE_IMMEDIATE); // закрыть меню
             WatchUi.popView(WatchUi.SLIDE_RIGHT);     // закрыть навигацию -> IDLE
+        } else if (id == :signals) {
+            ns.signalsOn = !ns.signalsOn;
+            WatchUi.popView(WatchUi.SLIDE_IMMEDIATE); // вернуться к навигации
         } else {
             if (ns.paused) {
                 ns.paused = false;
