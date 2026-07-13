@@ -268,11 +268,13 @@ class NavView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
     }
 
-    // Нормировка угла (рад) в [−π, π] — для корректной разности курсов.
+    // Нормировка угла (рад) в [−π, π] — БЕЗ циклов (исключаем любой риск watchdog).
     function normRad(a) {
-        var x = a;
-        while (x > Math.PI) { x -= 2.0 * Math.PI; }
-        while (x < -Math.PI) { x += 2.0 * Math.PI; }
+        var twoPi = 2.0 * Math.PI;
+        var k = ((a + Math.PI) / twoPi).toNumber(); // усечение к нулю
+        var x = a - k * twoPi;
+        if (x > Math.PI) { x -= twoPi; }
+        else if (x < -Math.PI) { x += twoPi; }
         return x;
     }
 
