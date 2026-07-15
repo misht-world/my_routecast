@@ -38,7 +38,7 @@ class RoutecastApp extends Application.AppBase {
     // Старт сессии записи — именно это включает GPS-приёмник для CIQ-аппа.
     // Сессию НЕ сохраняем (discard при выходе) — никаких лишних активностей.
     function startSession() {
-        if (session != null || Cfg.DEMO_MOVE) { return; }
+        if (session != null || Cfg.DEMO_MOVE || !Cfg.USE_SESSION) { return; }
         try {
             session = ActivityRecording.createSession({
                 :name => "RouteCast",
