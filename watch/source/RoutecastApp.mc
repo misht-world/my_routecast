@@ -4,6 +4,7 @@ using Toybox.Position;
 using Toybox.WatchUi;
 using Toybox.ActivityRecording;
 using Toybox.Activity;
+using Toybox.Time;
 
 // Точка входа виджета. Регистрирует mailbox-listener, держит RouteReceiver и навигацию.
 class RoutecastApp extends Application.AppBase {
@@ -96,17 +97,22 @@ class RoutecastApp extends Application.AppBase {
 
     function onPosition(info as Position.Info) as Void {
         posEvents += 1;
+        updatePosition(info);
+        WatchUi.requestUpdate();
+    }
+
+    function updatePosition(info) {
         if (navState != null) {
+            if (info == null) { navState.hasFix = false; return; }
             navState.gpsAcc = (info.accuracy != null) ? info.accuracy : 0;
             navState.gpsHasPos = (info.position != null);
             if (info.position != null) {
                 var d = info.position.toDegrees();
-                navState.demo = false; // пришёл реальный GPS — демо больше не нужно
-                navState.setFix((d[0] * 1000000).toNumber(), (d[1] * 1000000).toNumber(), null);
+                navState.acceptFix((d[0] * 1000000).toNumber(), (d[1] * 1000000).toNumber(),
+                    navState.gpsAcc, info.when == null ? null : info.when.value(), Time.now().value());
                 // курс ставит NavView из Sensor (компас стоя / GPS в движении)
-            }
+            } else { navState.hasFix = false; }
         }
-        WatchUi.requestUpdate();
     }
 
     function isRecording() {

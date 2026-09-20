@@ -1,6 +1,39 @@
 using Toybox.Test;
 using Toybox.Math;
 
+(:test)
+function gpsFreshnessAndDuplicateFix(logger) {
+    var ns = new NavState(new RouteModel(eastRoute(), []));
+    Test.assert(!ns.canNavigate(100));
+    Test.assert(!ns.acceptFix(50000000, 30000000, 2, 100, 100));
+    Test.assert(!ns.acceptFix(50000000, 30000000, 3, null, 100));
+    Test.assert(!ns.acceptFix(50000000, 30000000, 3, 80, 100));
+    Test.assert(ns.acceptFix(50000000, 30000000, 3, 100, 100));
+    Test.assert(ns.canNavigate(105));
+    Test.assert(!ns.acceptFix(50000000, 30001000, 3, 100, 105));
+    Test.assertEqual(ns.meLonMicro, 30000000);
+    Test.assert(!ns.canNavigate(111));
+    ns.paused = true;
+    Test.assert(!ns.canNavigate(105));
+    return true;
+}
+
+(:test)
+function arrivalRequiresGpsEndpointAndUnpaused(logger) {
+    var ns = new NavState(new RouteModel(eastRoute(), []));
+    Test.assert(!ns.checkArrival(0, 0, 100));
+    ns.acceptFix(50000200, 30004000, 3, 100, 100);
+    Test.assert(!ns.checkArrival(0, 22, 100));
+    ns.hasFix = false;
+    ns.acceptFix(50000000, 30004000, 3, 101, 101);
+    Test.assert(ns.checkArrival(0, 0, 101));
+    ns.paused = true;
+    Test.assert(!ns.checkArrival(0, 0, 101));
+    ns.paused = false;
+    Test.assert(!ns.checkArrival(0, 0, 112));
+    return true;
+}
+
 // Тесты математики следования RouteModel (Gate 2). Маршрут в микроградусах.
 
 // прямой маршрут на восток: 5 точек по 0.001° долготы на широте 50°

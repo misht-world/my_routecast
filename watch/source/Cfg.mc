@@ -3,7 +3,10 @@
 module Cfg {
     const DEMO_AUTOLOAD = false; // авто-загрузка мок-маршрута при старте (без телефона)
     const DEMO_MOVE = false;     // авто-движение по маршруту (нет GPS-плеера в симуляторе)
-    const VERSION = "v0.4.1";    // синхронно с Android и CHANGELOG.md
+    const VERSION = "v0.4.2";    // synchronized with Android and CHANGELOG.md
+    const GPS_MAX_AGE_SEC = 10;
+    const GPS_MIN_QUALITY = 3;
+    const ARRIVE_M = 8.0;
     const MAX_LINE_POINTS = 250;
     const POINTS_PER_CHUNK = 40;
     // Сессия ActivityRecording: раньше добавлялась ради GPS, но реально GPS починил ОДИН

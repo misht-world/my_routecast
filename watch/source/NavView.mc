@@ -7,12 +7,12 @@ using Toybox.Timer;
 using Toybox.Position;
 using Toybox.Application;
 using Toybox.Sensor;
+using Toybox.Time;
 
 // Отрисовка навигации heading-up (SPEC §5.4–5.5), монохром, один тон.
 class NavView extends WatchUi.View {
 
     const LOOKAHEAD = 40.0;
-    const ARRIVE_M = 8.0;
     const TURN_NOW_M = 8.0;  // вибро В МОМЕНТ поворота (в пределах стольки метров до вершины)
     const OFFROUTE_M = 15.0;
     const OFFROUTE_T_MS = 5000; // выдержка off-route, мс
@@ -55,6 +55,7 @@ class NavView extends WatchUi.View {
         ns.events = app.posEvents;
 
         var info = Position.getInfo();
+        app.updatePosition(info);
         if (info != null) {
             ns.gpsAcc = (info.accuracy != null) ? info.accuracy : 0;
             ns.gpsHasPos = (info.position != null);
@@ -65,7 +66,7 @@ class NavView extends WatchUi.View {
             var sInfo = Sensor.getInfo();
             var ch = (sInfo != null) ? sInfo.heading : null;
             var target = null;
-            if (spd >= MOVING_SPD && info.heading != null) {
+            if (ns.freshFix(Time.now().value()) && spd >= MOVING_SPD && info.heading != null) {
                 target = info.heading;
                 if (ch != null) {
                     var d = normRad(info.heading - ch);
@@ -82,10 +83,6 @@ class NavView extends WatchUi.View {
                     ns.headingRad = ns.headingRad + HEAD_SMOOTH * normRad(target - ns.headingRad);
                 }
             }
-            if (info.position != null && ns.gpsAcc >= 2) { // POOR и лучше
-                var d2 = info.position.toDegrees();
-                ns.setFix((d2[0] * 1000000).toNumber(), (d2[1] * 1000000).toNumber(), null);
-            }
         }
         WatchUi.requestUpdate();
     }
@@ -101,17 +98,20 @@ class NavView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
 
         var route = ns.route;
+        var now = Time.now().value();
+        var navigating = ns.canNavigate(now);
         // оконный поиск ближайшего сегмента — не «прилипаем» к возвратной ветке у старта
         var near = route.nearestWindowed(ns.meLatMicro, ns.meLonMicro,
             ns.lastTraveled - 30.0, ns.lastTraveled + 60.0);
         var segIdx = near[0];
         var crossM = near[2];
         var trav = near[3];
-        ns.lastTraveled = trav;
+        if (navigating) { ns.lastTraveled = trav; }
+        else { trav = ns.lastTraveled; }
         var rem = route.totalM() - trav;
         if (rem < 0.0) { rem = 0.0; }
 
-        if (!ns.arrived && route.totalM() > ARRIVE_M && rem <= ARRIVE_M) {
+        if (!ns.arrived && ns.checkArrival(rem, crossM, now)) {
             ns.arrived = true;
         }
         if (ns.arrived) {
@@ -120,7 +120,7 @@ class NavView extends WatchUi.View {
         }
 
         // off-route с выдержкой по времени (OFFROUTE_T) — гасим шумовые срабатывания
-        var rawOff = crossM > OFFROUTE_M;
+        var rawOff = navigating && crossM > OFFROUTE_M;
         if (rawOff) {
             if (ns.offSince == 0) { ns.offSince = System.getTimer(); }
         } else {
@@ -182,6 +182,8 @@ class NavView extends WatchUi.View {
         dc.fillPolygon([[cx, meY - 11], [cx - 8, meY + 9], [cx + 8, meY + 9]]);
         if (ns.paused) {
             dc.drawText(cx, 2, Graphics.FONT_XTINY, "PAUSE", Graphics.TEXT_JUSTIFY_CENTER);
+        } else if (!ns.freshFix(now)) {
+            dc.drawText(cx, H - 58, Graphics.FONT_TINY, "Waiting for GPS", Graphics.TEXT_JUSTIFY_CENTER);
         }
 
         // следующий манёвр: вибро В МОМЕНТ поворота (не заранее), один раз на манёвр.
@@ -192,7 +194,7 @@ class NavView extends WatchUi.View {
         var isFinish = (nm != null) && (nm[1] == 9);
         var manIdx = (nm != null) ? nm[0] : -1;
 
-        if (ns.signalsOn && !offRoute && !isFinish && nm != null
+        if (navigating && ns.signalsOn && !offRoute && !isFinish && nm != null
                 && dTo <= TURN_NOW_M && ns.nowIdx != manIdx) {
             ns.nowIdx = manIdx;
             vibeOnce();

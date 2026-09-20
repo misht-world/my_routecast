@@ -27,7 +27,8 @@ class NavDelegate extends WatchUi.BehaviorDelegate {
 
     // MENU — пауза/продолжение демо-движения (тест без GPS-плеера)
     function onMenu() {
-        toggleDemo();
+        if (Cfg.DEMO_MOVE) { toggleDemo(); }
+        else { onBack(); }
         return true;
     }
 
