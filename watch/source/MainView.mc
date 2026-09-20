@@ -1,11 +1,14 @@
 using Toybox.WatchUi;
 using Toybox.Graphics;
+using Toybox.Timer;
+using Toybox.System;
 
 // Экран до навигации: обзор всего маршрута + дистанция + ▶ (готов к старту),
 // либо приём, либо ожидание маршрута. Без отладочного текста. Монохром.
 class MainView extends WatchUi.View {
 
     var r;
+    var timer;
 
     function initialize(receiver) {
         View.initialize();
@@ -13,6 +16,7 @@ class MainView extends WatchUi.View {
     }
 
     function onUpdate(dc) {
+        r.expire(System.getTimer());
         var W = dc.getWidth();
         var H = dc.getHeight();
         var cx = W / 2;
@@ -34,12 +38,22 @@ class MainView extends WatchUi.View {
             var y = H / 2 + 6;
             dc.setPenWidth(1);
             dc.drawRectangle(x, y, bw, 10);
-            var frac = (r.np > 0) ? (r.points.size().toFloat() / r.np) : 0.0;
+            var frac = (r.nc + r.mc > 0) ? (r.nextSeq.toFloat() / (r.nc + r.mc)) : 0.0;
             dc.fillRectangle(x, y, (bw * frac).toNumber(), 10);
+            if (r.hasRoute()) { dc.drawText(cx, H - 34, Graphics.FONT_XTINY, "BACK: saved route", Graphics.TEXT_JUSTIFY_CENTER); }
         } else {
             dc.drawText(cx, H / 2 - 16, Graphics.FONT_SMALL, "Waiting for route", Graphics.TEXT_JUSTIFY_CENTER);
             dc.drawText(cx, H / 2 + 12, Graphics.FONT_TINY, "from phone", Graphics.TEXT_JUSTIFY_CENTER);
         }
+    }
+
+    function onShow() {
+        timer = new Timer.Timer();
+        timer.start(method(:onTick), 1000, true);
+    }
+    function onHide() { if (timer != null) { timer.stop(); } }
+    function onTick() as Void {
+        if (r.state == :receiving) { r.expire(System.getTimer()); WatchUi.requestUpdate(); }
     }
 
     function drawOverview(dc, W, H, cx) {

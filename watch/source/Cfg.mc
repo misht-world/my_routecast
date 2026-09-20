@@ -3,7 +3,12 @@
 module Cfg {
     const DEMO_AUTOLOAD = false; // авто-загрузка мок-маршрута при старте (без телефона)
     const DEMO_MOVE = false;     // авто-движение по маршруту (нет GPS-плеера в симуляторе)
-    const VERSION = "v0.4.2";    // synchronized with Android and CHANGELOG.md
+    const VERSION = "v0.5.0";
+    const PROTOCOL_VERSION = 2;
+    const MAX_MANEUVERS = 250;
+    const MANEUVERS_PER_CHUNK = 20;
+    const MAX_ROUTE_NAME = 60;
+    const TRANSFER_IDLE_MS = 30000;
     const GPS_MAX_AGE_SEC = 10;
     const GPS_MIN_QUALITY = 3;
     const ARRIVE_M = 8.0;

@@ -1,4 +1,33 @@
-# Протокол сообщений phone ↔ watch
+# Protocol v2 — application 0.5.0 (supersedes v1 below)
+
+Both applications must be updated together. Every packet and reply carries `id`,
+a fresh lowercase 32-character hexadecimal UUID per transfer/manual retry.
+ACK/NACK for a different id is ignored. Packet retries retain the id.
+
+- H: `{t:"H", id, v:2, np, nc, nm, mc, name}`; ACK -1.
+- L: `{t:"L", id, s, p:[[dlat,dlon],...]}`; sequence 0..nc-1.
+- M: `{t:"M", id, s, m:[[index,type,meters],...]}`; sequence nc..nc+mc-1.
+- E: `{t:"E", id}`; ACK -3 after validation and durable storage.
+- A: `{t:"A", id, s}`.
+- N: `{t:"N", id, s, reason}`; invalid/restart/version/storage/busy.
+
+Limits: 2–250 line points, 40 per L, 0–250 maneuvers, 20 per M, at least one M
+(empty for zero maneuvers), name at most 60 characters. Chunk counts must match
+these sizes. Chunks arrive sequentially. A repeated last chunk is acknowledged
+without appending. Missing/out-of-order data requests a full restart. Invalid
+current packets use the bounded retry budget; other error reasons stop the sender.
+Timeout 4 seconds; 3 retries. No automatic infinite reconnection loop.
+
+H creates staging without erasing the committed route; duplicate H does not reset
+progress. Foreign data cannot modify staging. E validates counts, ranges, indices,
+and distinct geometry, saves one snapshot, then promotes it. Duplicate E does not
+write again. Restart restores the snapshot, discards staging. Staging expires after
+30 seconds of inactivity. New H during navigation is rejected as busy.
+
+UUID is correlation, not authentication or ordering: a delayed foreign H may
+interrupt staging, but cannot mix data or falsely acknowledge the current transfer.
+
+## Archived protocol v1 (applications through 0.4.2)
 
 Транспорт: Connect IQ Mobile SDK (Android `sendMessage`) ↔ Monkey C `Communications` mailbox.
 Каждое сообщение — `Dictionary`. Принцип: маленькие сообщения, stop-and-wait с подтверждением.

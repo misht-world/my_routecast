@@ -5,7 +5,10 @@ package com.routecast
  * Часть значений — placeholder'ы под железо, помечены TODO: verify on device.
  */
 object Config {
-    const val PROTOCOL_VERSION = 1
+    const val PROTOCOL_VERSION = 2
+    const val MAX_MANEUVERS = 250
+    const val MANEUVERS_PER_CHUNK = 20
+    const val MAX_ROUTE_NAME = 60
     const val MAX_INPUT_CHARS = 2_000_000
     const val MAX_INPUT_POINTS = 10_000
 

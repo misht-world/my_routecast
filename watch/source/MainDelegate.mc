@@ -15,9 +15,14 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
         if (r.state == :ready) {
             (Application.getApp() as RoutecastApp).startNavigation();
         } else if (Cfg.DEMO_AUTOLOAD) {
-            MockFeeder.feed(r); // только в демо — на железе ждём маршрут с телефона
+            DemoRoute.feed(r);
         }
         WatchUi.requestUpdate();
         return true;
+    }
+
+    function onBack() {
+        if (r.state != :receiving) { return false; }
+        r.cancelPending(); WatchUi.requestUpdate(); return true;
     }
 }

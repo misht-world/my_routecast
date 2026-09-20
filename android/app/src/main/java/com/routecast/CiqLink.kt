@@ -28,9 +28,10 @@ class CiqLink(
     /** Готовность к передаче (устройство подключено, watch-апп найден). */
     var onReady: (() -> Unit)? = null
     var onDisconnected: (() -> Unit)? = null
+    var onUnavailable: ((String) -> Unit)? = null
     /** Подтверждения от часов. */
-    var onAck: ((Int) -> Unit)? = null
-    var onNack: ((Int) -> Unit)? = null
+    var onAck: ((Int, String) -> Unit)? = null
+    var onNack: ((Int, String, String) -> Unit)? = null
 
     fun start() {
         val type = if (BuildConfig.CIQ_CONNECT_TYPE == "WIRELESS") {
@@ -50,6 +51,7 @@ class CiqLink(
             }
             override fun onInitializeError(s: ConnectIQ.IQSdkErrorStatus) {
                 log("init error: ${s.name}")
+                onUnavailable?.invoke("Could not connect. Open Garmin Connect, then tap Reconnect watch.")
             }
             override fun onSdkShutDown() {
                 device = null
@@ -87,6 +89,8 @@ class CiqLink(
         polls++
         if (conn.isEmpty() && polls < 8) {
             handler.postDelayed({ poll() }, 2000)
+        } else if (conn.isEmpty()) {
+            onUnavailable?.invoke("Watch not found. Open Garmin Connect and check Bluetooth, then reconnect.")
         }
     }
 
@@ -103,6 +107,7 @@ class CiqLink(
                 }
                 override fun onApplicationNotInstalled(applicationId: String) {
                     log("watch app NOT installed on ${d.friendlyName}")
+                    if (ciq === c) onUnavailable?.invoke("Install RouteCast on your watch, then reconnect.")
                 }
             })
         } catch (e: Exception) {
@@ -119,15 +124,17 @@ class CiqLink(
                     val map = e as? Map<*, *> ?: continue
                     val t = map["t"] as? String ?: continue
                     val s = (map["s"] as? Number)?.toInt() ?: continue
+                    val id = map["id"] as? String ?: continue
                     when (t) {
-                        "A" -> onAck?.invoke(s)
-                        "N" -> onNack?.invoke(s)
+                        "A" -> onAck?.invoke(s, id)
+                        "N" -> onNack?.invoke(s, id, map["reason"] as? String ?: "invalid")
                     }
                 }
             }
             return true
         } catch (e: Exception) {
             log("appEvents err: ${e.message}")
+            onUnavailable?.invoke("Could not receive watch replies. Tap Reconnect watch.")
             return false
         }
     }
@@ -166,6 +173,7 @@ class CiqLink(
     fun stop() {
         onReady = null
         onDisconnected = null
+        onUnavailable = null
         onAck = null
         onNack = null
         handler.removeCallbacksAndMessages(null)

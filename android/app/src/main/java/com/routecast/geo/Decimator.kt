@@ -44,6 +44,7 @@ object Decimator {
         val stack = ArrayDeque<Pair<Int, Int>>()
         stack.addLast(0 to points.size - 1)
         while (stack.isNotEmpty()) {
+            if (Thread.currentThread().isInterrupted) throw InterruptedException()
             val (s, e) = stack.removeLast()
             var maxD = 0.0
             var idx = -1

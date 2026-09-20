@@ -32,15 +32,21 @@ object RouteProcessor {
 
     /** content — текст файла (GPX или GeoJSON, авто-детект по первому символу). */
     fun process(name: String, content: String): Result {
-        if (content.length > Config.MAX_INPUT_CHARS) throw RouteParseException("слишком большой файл маршрута")
+        if (content.length > Config.MAX_INPUT_CHARS) throw RouteParseException("Route file is too large.")
         val pts = parse(content)
-        if (pts.size > Config.MAX_INPUT_POINTS) throw RouteParseException("слишком много точек маршрута")
+        if (pts.size > Config.MAX_INPUT_POINTS) throw RouteParseException("Route contains too many points.")
         if (pts.size < 2 || pts.all { it == pts.first() }) {
-            throw RouteParseException("маршрут должен содержать минимум две разные точки")
+            throw RouteParseException("Route needs at least two different points.")
         }
         val dec = Decimator.decimateToMax(pts, Config.MAX_LINE_POINTS)
         val mans = ManeuverDetector.detect(pts, dec)
-        val enc = Encoder.encode(dec, mans, name)
+        if (mans.size > Config.MAX_MANEUVERS) throw RouteParseException("Route contains too many turns. Try a shorter route.")
+        val safeName = name.filter { !it.isISOControl() }.take(Config.MAX_ROUTE_NAME).ifBlank { "Route" }
+        val enc = Encoder.encode(dec, mans, safeName)
+        val rounded = Encoder.decodeLine(enc.chunks)
+        if (rounded.all { it.contentEquals(rounded.first()) }) {
+            throw RouteParseException("Route is too short to navigate.")
+        }
         return Result(
             name = name,
             rawPoints = pts.size,

@@ -17,21 +17,21 @@ object GeoJsonParser {
         } catch (e: RouteParseException) {
             throw e
         } catch (e: Exception) {
-            throw RouteParseException("битый GeoJSON: ${e.message}")
+            throw RouteParseException("Invalid GeoJSON file.")
         }
     }
 
     private fun parseInternal(json: String): List<Pt> {
-        if (json.isBlank()) throw RouteParseException("пустой GeoJSON")
+        if (json.isBlank()) throw RouteParseException("GeoJSON file is empty.")
         val root = try {
             JsonParser.parseString(json).asJsonObject
         } catch (e: Exception) {
-            throw RouteParseException("битый GeoJSON: ${e.message}")
+            throw RouteParseException("Invalid GeoJSON file.")
         }
 
         val line = findLineString(root)
-            ?: throw RouteParseException("в GeoJSON нет LineString")
-        if (line.size() < 1) throw RouteParseException("пустой LineString")
+            ?: throw RouteParseException("GeoJSON contains no LineString route.")
+        if (line.size() < 1) throw RouteParseException("GeoJSON route is empty.")
 
         val pts = ArrayList<Pt>(line.size())
         for (c in line) {
@@ -39,7 +39,7 @@ object GeoJsonParser {
             val lon = pair[0].asDouble
             val lat = pair[1].asDouble
             if (!lat.isFinite() || !lon.isFinite() || lat !in -90.0..90.0 || lon !in -180.0..180.0) {
-                throw RouteParseException("некорректные координаты GeoJSON")
+                throw RouteParseException("GeoJSON coordinates are invalid.")
             }
             pts.add(Pt(lat, lon))
         }
@@ -60,3 +60,4 @@ object GeoJsonParser {
         return null
     }
 }
+

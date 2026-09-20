@@ -55,7 +55,7 @@ class EncoderTest {
         assertEquals(90, enc.header.np)
         assertEquals(3, enc.header.nc)
         assertEquals(2, enc.header.nm)
-        assertEquals(1, enc.header.v)
+        assertEquals(2, enc.header.v)
         assertEquals(enc.header.nc, enc.chunks.size)
         // манёвр в виде [idx,type,dist]
         assertEquals(intArrayOf(10, -2, 100).toList(), enc.maneuvers.m[0].toList())

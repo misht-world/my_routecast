@@ -4,74 +4,80 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.util.Log
-import com.routecast.proto.Encoder
-import com.routecast.proto.MessageBuilder
-import android.view.Gravity
+import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
+import com.routecast.parse.RouteParseException
+import com.routecast.proto.MessageBuilder
 import java.util.concurrent.Executors
 
-/**
- * Share-target: ловит расшаренный/открытый GPX/GeoJSON, прогоняет через RouteProcessor,
- * показывает сводку маршрута. Кнопка Load sample парсит встроенный образец (без шаринга).
- * Передача на часы — следующий инкремент Gate 3.
- */
+/** English status UI; import work is bounded and the last confirmed route survives restarts. */
 class MainActivity : Activity() {
-
-    private lateinit var out: TextView
-    private var ciqLink: CiqLink? = null
-    private var lastEnc: Encoder.Encoded? = null
+    private lateinit var status: TextView
+    private lateinit var summary: TextView
+    private lateinit var diagnostics: TextView
+    private lateinit var progress: ProgressBar
+    private lateinit var sendButton: Button
+    private lateinit var connectButton: Button
+    private lateinit var store: RouteStore
+    private val logLines = ArrayDeque<String>()
+    private val imports = LatestTaskRunner()
+    private val saves = Executors.newSingleThreadExecutor()
+    private var generation = 0
+    private var link: CiqLink? = null
     private var transfer: Transfer? = null
-    private var watchReady = false      // часы найдены и watch-апп установлен
-    private var autoSendPending = false // маршрут пришёл через share -> отправить, как будем готовы
-    private var sending = false         // идёт передача (защита от двойного старта)
-    private val importWorker = Executors.newSingleThreadExecutor()
-    private var importGeneration = 0
+    private var route: RouteStore.Saved? = null
+    private var ready = false
+    private var sending = false
+    private var loading = false
+    private var autoSend = false
+    private var retry = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        store = RouteStore(filesDir)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(32, 32, 32, 32)
+            val pad = (20 * resources.displayMetrics.density).toInt()
+            setPadding(pad, pad, pad, pad)
         }
-        val sampleBtn = Button(this).apply {
-            text = "Load sample"
-            setOnClickListener { loadSample() }
+        val title = TextView(this).apply { text = "RouteCast ${BuildConfig.VERSION_NAME}"; textSize = 24f }
+        status = TextView(this).apply { textSize = 18f }
+        summary = TextView(this).apply { textSize = 16f }
+        progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100; visibility = View.GONE
         }
-        val connectBtn = Button(this).apply {
-            text = "Connect to watch (sim)"
-            setOnClickListener { connectWatch() }
+        sendButton = Button(this).apply { text = "Send to watch"; setOnClickListener { sendRoute() } }
+        connectButton = Button(this).apply { text = "Reconnect watch"; setOnClickListener { connect() } }
+        val sampleButton = Button(this).apply { text = "Load sample route"; setOnClickListener { importSample() } }
+        diagnostics = TextView(this).apply { textSize = 12f; visibility = View.GONE }
+        val details = Button(this).apply {
+            text = "Show diagnostics"
+            setOnClickListener {
+                val show = diagnostics.visibility != View.VISIBLE
+                diagnostics.visibility = if (show) View.VISIBLE else View.GONE
+                text = if (show) "Hide diagnostics" else "Show diagnostics"
+            }
         }
-        val sendBtn = Button(this).apply {
-            text = "Send to watch"
-            setOnClickListener { sendToWatch() }
+        for (view in listOf(title, status, summary, progress, sendButton, connectButton, sampleButton, details, diagnostics)) {
+            root.addView(view)
         }
-        out = TextView(this).apply {
-            textSize = 14f
-            setLineSpacing(0f, 1.2f)
+        setContentView(ScrollView(this).apply { addView(root) })
+        val retained = lastNonConfigurationInstance as? RouteStore.Saved
+        if (retained != null && savedInstanceState != null) {
+            route = retained; renderRoute(); setStatus("Route ready. Open RouteCast on your watch, then tap Send.")
+        } else if (savedInstanceState != null || !handleIntent(intent)) {
+            restoreRoute()
         }
-        val scroll = ScrollView(this).apply { addView(out) }
-
-        root.addView(sampleBtn)
-        root.addView(connectBtn)
-        root.addView(sendBtn)
-        root.addView(scroll, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.MATCH_PARENT
-        ))
-        root.gravity = Gravity.TOP
-        setContentView(root)
-
-        // если открыли без файла — показать встроенный образец (удобно для теста)
-        if (!handleIntent(intent)) loadSample()
-
-        // авто-подключение к симулятору при старте (для теста Gate 3 без тапов)
-        connectWatch()
+        connect()
     }
+
+    override fun onRetainNonConfigurationInstance(): Any? = route
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -79,163 +85,192 @@ class MainActivity : Activity() {
         handleIntent(intent)
     }
 
-    /** @return true если из интента пришёл файл и он обработан. */
+    @Suppress("DEPRECATION")
     private fun handleIntent(intent: Intent?): Boolean {
-        if (intent == null) return false
-        val uri: Uri? = when (intent.action) {
-            Intent.ACTION_SEND -> intent.getParcelableExtra(Intent.EXTRA_STREAM)
-            Intent.ACTION_VIEW -> intent.data
-            else -> null
+        val uri = try {
+            when (intent?.action) {
+                Intent.ACTION_SEND -> intent.getParcelableExtra<android.os.Parcelable>(Intent.EXTRA_STREAM) as? Uri
+                Intent.ACTION_VIEW -> intent.data
+                else -> null
+            }
+        } catch (_: Exception) { null }
+        if (uri == null) return false
+        importRoute(true) {
+            val name = try {
+                contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
+                    if (it.moveToFirst()) it.getString(0) else null
+                }
+            } catch (_: Exception) { null }
+            val text = contentResolver.openInputStream(uri)?.bufferedReader()?.use { RouteInput.read(it) }
+                ?: throw RouteParseException("Could not read the route file.")
+            RouteProcessor.process(name ?: "Shared route", text)
         }
-        if (uri != null) {
-            process(uri)
-            return true
-        }
-        return false
+        return true
     }
 
-    /** Если маршрут готов и часы на связи — отправляем без ручного тапа. */
-    private fun maybeAutoSend() {
-        if (autoSendPending && watchReady && !sending && lastEnc != null) {
-            autoSendPending = false
-            out.append("авто-отправка на часы…\n")
-            sendToWatch()
-        }
+    private fun importSample() = importRoute(false) {
+        val text = assets.open("short_city.gpx").bufferedReader().use { RouteInput.read(it) }
+        RouteProcessor.process("Sample route", text)
     }
 
-    private fun process(uri: Uri) {
-        clearRoute()
-        val generation = importGeneration
-        out.text = "Чтение маршрута…"
-        importWorker.execute {
+    private fun importRoute(sendWhenReady: Boolean, read: () -> RouteProcessor.Result) {
+        val token = beginLoad()
+        imports.submit {
             try {
-                val content = contentResolver.openInputStream(uri)?.bufferedReader()?.use {
-                    val chars = CharArray(Config.MAX_INPUT_CHARS + 1)
-                    var size = 0
-                    while (size < chars.size) {
-                        val n = it.read(chars, size, chars.size - size)
-                        if (n < 0) break
-                        size += n
-                    }
-                    require(size <= Config.MAX_INPUT_CHARS) { "слишком большой файл маршрута" }
-                    String(chars, 0, size)
-                } ?: throw IllegalStateException("не удалось прочитать файл")
-                val result = RouteProcessor.process(uri.lastPathSegment ?: "route", content)
+                val result = read()
+                val saved = RouteStore.Saved(result.encoded, result.totalMeters)
                 runOnUiThread {
-                    if (!isDestroyed && generation == importGeneration) {
-                        show(result)
-                        autoSendPending = true
-                        maybeAutoSend()
-                    }
+                    if (!current(token)) return@runOnUiThread
+                    loading = false; route = saved; autoSend = sendWhenReady
+                    renderRoute()
+                    setStatus(if (ready) "Route ready. Open RouteCast on your watch." else "Route ready. Waiting for watch connection.")
+                    maybeSend()
+                }
+            } catch (_: InterruptedException) {
+                // Replaced imports never update UI.
+            } catch (e: Exception) {
+                runOnUiThread {
+                    if (!current(token)) return@runOnUiThread
+                    loading = false
+                    val message = if (e is RouteParseException) e.message ?: "Invalid route file." else "Could not load this route. Try another GPX or GeoJSON file."
+                    setStatus(message)
+                    note("Import failed: ${e.javaClass.simpleName}")
+                }
+            }
+        }
+    }
+
+    private fun beginLoad(): Int {
+        generation++
+        transfer?.cancel(); transfer = null
+        sending = false; autoSend = false; retry = false; route = null; loading = true
+        summary.text = ""; progress.visibility = View.GONE
+        setStatus("Loading route...")
+        return generation
+    }
+
+    private fun restoreRoute() {
+        val token = beginLoad()
+        imports.submit {
+            try {
+                val saved = store.load()
+                runOnUiThread {
+                    if (!current(token)) return@runOnUiThread
+                    loading = false; route = saved; renderRoute()
+                    setStatus(if (saved == null) "Share a GPX or GeoJSON route from Organic Maps to get started."
+                        else "Last sent route restored. Open RouteCast on your watch to start.")
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    if (!isDestroyed && generation == importGeneration) out.text = "Ошибка: ${e.message}"
-                }
-                Log.e("routecast", "parse failed", e)
-            }
-        }
-    }
-
-    private fun connectWatch() {
-        transfer?.cancel()
-        sending = false
-        out.append("\n--- Connect IQ ---\n")
-        watchReady = false
-        ciqLink?.stop()
-        val link = CiqLink(this, Config.WATCH_APP_ID_HEX) { line ->
-            runOnUiThread {
-                out.append(line + "\n")
-                Log.i("routecast", line)
-            }
-        }
-        link.onReady = {
-            runOnUiThread {
-                if (ciqLink !== link || isDestroyed) return@runOnUiThread
-                watchReady = true
-                out.append("часы на связи\n")
-                maybeAutoSend()
-            }
-        }
-        ciqLink = link
-        link.onDisconnected = {
-            runOnUiThread {
-                if (ciqLink === link && !isDestroyed) {
-                    watchReady = false
-                    transfer?.cancel()
-                    sending = false
-                    out.append("связь с часами потеряна; после подключения повторите отправку\n")
+                    if (current(token)) {
+                        loading = false; setStatus("Saved route could not be restored. Share the route again.")
+                        note("Restore failed: ${e.javaClass.simpleName}")
+                    }
                 }
             }
         }
-        link.start()
     }
 
-    private fun sendToWatch() {
-        val enc = lastEnc
-        val link = ciqLink
-        if (enc == null) { out.append("сначала загрузите маршрут\n"); return }
-        if (link == null || !watchReady) { out.append("сначала подключите часы\n"); return }
-        if (sending) { out.append("передача уже идёт…\n"); return }
-        sending = true
-        link.openApp()
-        val packets = MessageBuilder.build(enc)
-        out.append("→ передаю ${packets.size} пакетов…\n")
-        transfer = Transfer(
-            link, packets,
-            onProgress = { sent, total -> runOnUiThread { out.append("  ack $sent/$total\n") } },
-            onDone = { runOnUiThread { sending = false; out.append("✓ маршрут передан\n") } },
-            onError = { msg -> runOnUiThread { sending = false; out.append("✗ $msg\n") } }
-        ).also { it.start() }
+    private fun connect() {
+        transfer?.cancel(); transfer = null; sending = false; ready = false
+        progress.visibility = View.GONE
+        link?.stop()
+        connectButton.text = "Reconnect watch"
+        updateButtons()
+        val connection = CiqLink(this, Config.WATCH_APP_ID_HEX) { line -> runOnUiThread { if (!isDestroyed) note(line) } }
+        link = connection
+        connection.onReady = {
+            runOnUiThread {
+                if (link !== connection || isDestroyed) return@runOnUiThread
+                ready = true; updateButtons()
+                if (!loading && route != null && !sending) setStatus("Watch connected. Open RouteCast on your watch, then tap Send.")
+                maybeSend()
+            }
+        }
+        connection.onDisconnected = {
+            runOnUiThread {
+                if (link !== connection || isDestroyed) return@runOnUiThread
+                val wasSending = sending
+                ready = false; transfer?.cancel(); sending = false; autoSend = false
+                if (wasSending) retry = true
+                progress.visibility = View.GONE
+                setStatus("Watch disconnected. Reconnect, then tap Retry or Send.")
+            }
+        }
+        connection.onUnavailable = { message ->
+            runOnUiThread {
+                if (link === connection && !isDestroyed && !sending) {
+                    ready = false; setStatus(message)
+                }
+            }
+        }
+        try { connection.start() }
+        catch (e: Exception) { setStatus("Could not connect. Open Garmin Connect, then tap Reconnect watch."); note("Connection failed: ${e.javaClass.simpleName}") }
     }
 
+    private fun maybeSend() {
+        if (autoSend && ready && !sending && !loading && route != null) {
+            autoSend = false; sendRoute()
+        }
+    }
+
+    private fun sendRoute() {
+        val saved = route ?: return
+        val connection = link ?: return
+        if (!ready || sending || loading) return
+        val token = generation
+        sending = true; retry = false
+        progress.progress = 0; progress.visibility = View.VISIBLE
+        setStatus("Sending route — 0%. Keep RouteCast open on your watch.")
+        transfer = Transfer(connection, MessageBuilder.build(saved.encoded),
+            onProgress = { sent, total ->
+                if (current(token)) {
+                    val percent = sent * 100 / total
+                    progress.progress = percent; status.text = "Sending route — $percent%"
+                }
+            },
+            onDone = {
+                // Persist once after durable watch confirmation, never on every GPS update.
+                saves.execute {
+                    var savedOnPhone = true
+                    try { store.save(saved) } catch (_: Exception) { savedOnPhone = false }
+                    runOnUiThread {
+                        if (!current(token)) return@runOnUiThread
+                        sending = false; retry = false; progress.visibility = View.GONE
+                        setStatus(if (savedOnPhone) "Route saved on watch. Press START on your watch to navigate."
+                            else "Route saved on watch. Phone backup failed; share again after restarting the phone app.")
+                    }
+                }
+            },
+            onError = { message ->
+                if (current(token)) {
+                    sending = false; retry = true; progress.visibility = View.GONE
+                    setStatus(message)
+                }
+            }).also { it.start() }
+    }
+
+    private fun current(token: Int) = !isDestroyed && token == generation
+    private fun setStatus(message: String) { status.text = message; updateButtons() }
+    private fun updateButtons() {
+        sendButton.text = if (retry) "Retry" else "Send to watch"
+        sendButton.isEnabled = ready && route != null && !sending && !loading
+        connectButton.isEnabled = !sending
+    }
+    private fun renderRoute() {
+        val saved = route
+        summary.text = if (saved == null) "" else "${saved.encoded.header.name}\n${saved.meters} m · ${saved.encoded.header.nm} navigation cues"
+        updateButtons()
+    }
+    private fun note(line: String) {
+        if (logLines.size == 40) logLines.removeFirst()
+        logLines.addLast(line.take(240))
+        diagnostics.text = logLines.joinToString("\n")
+        Log.i("routecast", line.take(240))
+    }
     override fun onDestroy() {
-        importGeneration++
-        importWorker.shutdownNow()
-        transfer?.cancel()
+        generation++; imports.close(); transfer?.cancel(); link?.stop()
+        saves.shutdown() // Allow an already confirmed route's single atomic write to finish.
         super.onDestroy()
-        ciqLink?.stop()
-    }
-
-    private fun loadSample() {
-        clearRoute()
-        // если положен реальный трек — берём его, иначе встроенный образец
-        val name = try {
-            if (assets.list("")?.contains("real_route.gpx") == true) "real_route.gpx" else "short_city.gpx"
-        } catch (e: Exception) { "short_city.gpx" }
-        try {
-            val content = assets.open(name).bufferedReader().use { it.readText() }
-            show(RouteProcessor.process(name, content))
-        } catch (e: Exception) {
-            out.text = "Ошибка: ${e.message}"
-            Log.e("routecast", "parse failed", e)
-        }
-    }
-
-    private fun show(r: RouteProcessor.Result) {
-        lastEnc = r.encoded
-        val sb = StringBuilder()
-        sb.appendLine("Маршрут: ${r.encoded.header.name}")
-        sb.appendLine("Исходных точек: ${r.rawPoints}")
-        sb.appendLine("После децимации: ${r.decimatedPoints} (лимит ${Config.MAX_LINE_POINTS})")
-        sb.appendLine("Манёвров: ${r.maneuvers}")
-        sb.appendLine("Дистанция: ${r.totalMeters} м")
-        sb.appendLine("Чанков (по ${Config.POINTS_PER_CHUNK}): ${r.chunks}")
-        sb.appendLine()
-        sb.appendLine("Протокол готов к отправке:")
-        sb.appendLine("  H v${r.encoded.header.v} np=${r.encoded.header.np} nc=${r.encoded.header.nc} nm=${r.encoded.header.nm}")
-        for (c in r.encoded.chunks) sb.appendLine("  L s=${c.s} pts=${c.p.size}")
-        sb.appendLine("  M (${r.encoded.maneuvers.m.size}) -> E")
-        out.text = sb.toString()
-        Log.i("routecast", "\n" + sb.toString())
-    }
-
-    private fun clearRoute() {
-        importGeneration++
-        transfer?.cancel()
-        transfer = null
-        sending = false
-        lastEnc = null
-        autoSendPending = false
     }
 }

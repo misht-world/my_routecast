@@ -40,8 +40,8 @@ class Transfer(
             onError = { handler.removeCallbacks(timeout); onError(it) }
         )
         sender = s
-        link.onAck = { seq -> handler.post { s.onAck(seq) } }
-        link.onNack = { seq -> handler.post { s.onNack(seq) } }
+        link.onAck = { seq, id -> handler.post { s.onAck(seq, id) } }
+        link.onNack = { seq, id, reason -> handler.post { s.onNack(seq, id, reason) } }
         s.start()
     }
 

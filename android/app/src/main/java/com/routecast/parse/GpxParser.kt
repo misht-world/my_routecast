@@ -12,11 +12,11 @@ import javax.xml.parsers.DocumentBuilderFactory
 object GpxParser {
 
     fun parse(xml: String): List<Pt> {
-        if (xml.isBlank()) throw RouteParseException("пустой GPX")
+        if (xml.isBlank()) throw RouteParseException("GPX file is empty.")
         // GPX needs no DTD. Reject before parsing, including on Android parsers
         // that do not support the optional XML security features below.
         if (xml.contains("<!DOCTYPE", ignoreCase = true) || xml.contains("<!ENTITY", ignoreCase = true)) {
-            throw RouteParseException("DTD и XML entities в GPX не поддерживаются")
+            throw RouteParseException("GPX files with DTD or entity declarations are not supported.")
         }
         val doc = try {
             val f = DocumentBuilderFactory.newInstance().apply {
@@ -29,7 +29,7 @@ object GpxParser {
             }
             f.newDocumentBuilder().parse(ByteArrayInputStream(xml.toByteArray(Charsets.UTF_8)))
         } catch (e: Exception) {
-            throw RouteParseException("битый GPX: ${e.message}")
+            throw RouteParseException("Invalid GPX file.")
         }
 
         val trkpts = doc.getElementsByTagName("trkpt")
@@ -40,7 +40,7 @@ object GpxParser {
         val rt = collect(rtepts)
         if (rt.isNotEmpty()) return rt
 
-        throw RouteParseException("в GPX нет точек (trkpt/rtept)")
+        throw RouteParseException("GPX contains no route or track points.")
     }
 
     private fun collect(nodes: org.w3c.dom.NodeList): List<Pt> {
@@ -51,10 +51,11 @@ object GpxParser {
             val lon = el.getAttribute("lon").toDoubleOrNull()
             if (lat == null || lon == null || !lat.isFinite() || !lon.isFinite() ||
                 lat !in -90.0..90.0 || lon !in -180.0..180.0) {
-                throw RouteParseException("некорректные координаты GPX")
+                throw RouteParseException("GPX coordinates are invalid.")
             }
             out.add(Pt(lat, lon))
         }
         return out
     }
 }
+

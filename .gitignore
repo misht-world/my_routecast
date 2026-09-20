@@ -19,3 +19,6 @@ watch/developer_key.der
 # Личные тестовые треки
 kmz_tests/
 android/app/src/main/assets/real_route.gpx
+
+# MockFeeder регенерируется из приватного трека (RealRouteMockGen) — не коммитить
+watch/source/MockFeeder.mc

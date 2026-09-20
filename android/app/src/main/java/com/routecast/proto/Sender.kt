@@ -19,6 +19,7 @@ class Sender(
     private var idx = 0
     private var retries = 0
     private var finished = true
+    val transferId: String? = packets.firstOrNull()?.payload?.get("id") as? String
 
     fun start() {
         if (!finished) return
@@ -39,12 +40,14 @@ class Sender(
     }
 
     /** Подтверждение принятого пакета. */
-    fun onAck(seq: Int) {
+    fun onAck(seq: Int, id: String? = null) {
+        if (id == null || id != transferId) return
         if (finished) return
         if (seq != packets[idx].ackSeq) return // дубль/чужой ack — игнор
         idx++
         retries = 0
         onProgress(idx, packets.size)
+        if (finished) return
         if (idx >= packets.size) {
             finished = true
             onDone()
@@ -54,8 +57,19 @@ class Sender(
     }
 
     /** Часы просят повтор (nack) — пересылаем текущий пакет. */
-    fun onNack(@Suppress("UNUSED_PARAMETER") seq: Int) {
-        if (finished) return
+    fun onNack(seq: Int, id: String? = null, reason: String = "invalid") {
+        if (finished || id == null || id != transferId) return
+        if (reason in setOf("restart", "version", "storage", "busy")) {
+            finished = true
+            onError(when (reason) {
+                "version" -> "Update RouteCast on both your phone and watch."
+                "storage" -> "The watch could not save the route. Free space and retry."
+                "busy" -> "Finish navigation on the watch before sending a new route."
+                else -> "Transfer interrupted. Open RouteCast on the watch and retry."
+            })
+            return
+        }
+        if (seq != packets[idx].ackSeq) return
         retry("nack")
     }
 
@@ -69,7 +83,7 @@ class Sender(
         retries++
         if (retries > maxRetry) {
             finished = true
-            onError("$cause: пакет $idx, ретраи исчерпаны")
+            onError("No confirmation. Open RouteCast on the watch, check that both apps are up to date, and retry.")
         } else {
             sendCurrent()
         }

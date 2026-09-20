@@ -23,8 +23,10 @@ class RoutecastApp extends Application.AppBase {
     }
 
     function onStart(state) {
+        receiver.store = new RouteStore();
+        receiver.restore();
         Communications.registerForPhoneAppMessages(method(:onPhone));
-        if (Cfg.DEMO_AUTOLOAD) { MockFeeder.feed(receiver); } // без телефона — сразу обзор
+        if (Cfg.DEMO_AUTOLOAD) { DemoRoute.feed(receiver); }
         // на железе — поднимаем GPS заранее (прогрев), движение берём из реального приёмника
         if (!Cfg.DEMO_MOVE) {
             Position.enableLocationEvents(Position.LOCATION_CONTINUOUS, method(:onPosition));
@@ -65,6 +67,11 @@ class RoutecastApp extends Application.AppBase {
     // Сообщение с телефона: msg.data — Dictionary протокола (см. docs/protocol.md).
     function onPhone(msg as Communications.PhoneAppMessage) as Void {
         receiver.replyEnabled = true; // приём от телефона — шлём ack
+        var d = msg.data;
+        if (navState != null && d instanceof Toybox.Lang.Dictionary && d["t"] != null &&
+            d["t"].equals("H") && RouteData.validId(d["id"])) {
+            receiver.reply("N", d["id"], -1, "busy"); return;
+        }
         receiver.handle(msg.data);
         WatchUi.requestUpdate();
     }
@@ -81,9 +88,11 @@ class RoutecastApp extends Application.AppBase {
     // Пауза/возобновление — только UI-флаг (ns.paused). GPS НЕ трогаем
     // (повторный enable/disable ломает доставку колбэка — см. forum).
     function pauseNavigation() {
+        if (navState != null) { navState.offSince = 0; navState.offBuzzed = false; }
     }
 
     function resumeNavigation() {
+        if (navState != null) { navState.offSince = 0; navState.offBuzzed = false; }
     }
 
     // Завершение: отбрасываем сессию и ОЧИЩАЕМ маршрут -> IDLE.
@@ -91,7 +100,6 @@ class RoutecastApp extends Application.AppBase {
     function finishNavigation() {
         endSession();
         receiver.reset();
-        receiver.state = :idle;
         navState = null;
     }
 
