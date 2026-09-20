@@ -59,8 +59,9 @@ class NavState {
     // Курс обновляем только если передан (hdg != null) — вызывающий даёт его лишь в движении.
     function setFix(latMicro, lonMicro, hdg) {
         if (hasFix && !demo) {
-            meLatMicro = (meLatMicro * 7 + latMicro * 3) / 10;
-            meLonMicro = (meLonMicro * 7 + lonMicro * 3) / 10;
+            // Difference first: weighted absolute longitude can overflow Number.
+            meLatMicro += ((latMicro - meLatMicro) * 0.3).toNumber();
+            meLonMicro += ((lonMicro - meLonMicro) * 0.3).toNumber();
         } else {
             meLatMicro = latMicro;
             meLonMicro = lonMicro;

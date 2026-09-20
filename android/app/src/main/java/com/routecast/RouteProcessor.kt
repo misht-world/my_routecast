@@ -5,6 +5,7 @@ import com.routecast.geo.ManeuverDetector
 import com.routecast.model.Pt
 import com.routecast.parse.GeoJsonParser
 import com.routecast.parse.GpxParser
+import com.routecast.parse.RouteParseException
 import com.routecast.proto.Encoder
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -31,7 +32,12 @@ object RouteProcessor {
 
     /** content — текст файла (GPX или GeoJSON, авто-детект по первому символу). */
     fun process(name: String, content: String): Result {
+        if (content.length > Config.MAX_INPUT_CHARS) throw RouteParseException("слишком большой файл маршрута")
         val pts = parse(content)
+        if (pts.size > Config.MAX_INPUT_POINTS) throw RouteParseException("слишком много точек маршрута")
+        if (pts.size < 2 || pts.all { it == pts.first() }) {
+            throw RouteParseException("маршрут должен содержать минимум две разные точки")
+        }
         val dec = Decimator.decimateToMax(pts, Config.MAX_LINE_POINTS)
         val mans = ManeuverDetector.detect(pts, dec)
         val enc = Encoder.encode(dec, mans, name)

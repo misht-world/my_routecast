@@ -10,6 +10,44 @@ import org.junit.Test
 
 class SenderTest {
 
+    @Test
+    fun cancelledSenderIgnoresLateEvents() {
+        val t = FakeTransport()
+        var callbacks = 0
+        val s = Sender(samplePackets(), t, onDone = { callbacks++ }, onError = { callbacks++ })
+        s.start()
+        s.cancel()
+        s.onAck(-1)
+        s.onNack(-1)
+        s.onTimeout()
+        assertEquals(1, t.sent.size)
+        assertEquals(0, callbacks)
+    }
+
+    @Test
+    fun emptyTransferCompletesWithoutSending() {
+        val t = FakeTransport()
+        var done = 0
+        val s = Sender(emptyList(), t, onDone = { done++ })
+        s.start()
+        s.onAck(-1)
+        assertEquals(1, done)
+        assertTrue(t.sent.isEmpty())
+    }
+
+    @Test
+    fun synchronousAckDoesNotArmTimerAfterCompletion() {
+        val events = ArrayList<String>()
+        lateinit var s: Sender
+        val t = object : Transport {
+            override fun send(payload: Map<String, Any?>) { s.onAck(s.currentAckSeq) }
+        }
+        s = Sender(samplePackets(), t, onArm = { events.add("arm") }, onDone = { events.add("done") })
+        s.start()
+        assertEquals("done", events.last())
+        assertTrue(s.isFinished)
+    }
+
     private class FakeTransport : Transport {
         val sent = ArrayList<Map<String, Any?>>()
         override fun send(payload: Map<String, Any?>) { sent.add(payload) }

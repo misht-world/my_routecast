@@ -27,6 +27,7 @@ class CiqLink(
 
     /** Готовность к передаче (устройство подключено, watch-апп найден). */
     var onReady: (() -> Unit)? = null
+    var onDisconnected: (() -> Unit)? = null
     /** Подтверждения от часов. */
     var onAck: ((Int) -> Unit)? = null
     var onNack: ((Int) -> Unit)? = null
@@ -42,6 +43,7 @@ class CiqLink(
         log("init SDK (${BuildConfig.CIQ_CONNECT_TYPE})…")
         c.initialize(ctx, true, object : ConnectIQ.ConnectIQListener {
             override fun onSdkReady() {
+                if (ciq !== c) return
                 log("SDK ready")
                 polls = 0
                 poll()
@@ -50,6 +52,9 @@ class CiqLink(
                 log("init error: ${s.name}")
             }
             override fun onSdkShutDown() {
+                device = null
+                app = null
+                onDisconnected?.invoke()
                 log("SDK shutdown")
             }
         })
@@ -65,8 +70,14 @@ class CiqLink(
             if (seen.add(d.deviceIdentifier)) {
                 try {
                     c.registerForDeviceEvents(d) { dev, status ->
+                        if (ciq !== c) return@registerForDeviceEvents
                         log("status: ${dev.friendlyName} = $status")
                         if (status == IQDevice.IQDeviceStatus.CONNECTED) checkApp(dev)
+                        else if (device?.deviceIdentifier == dev.deviceIdentifier) {
+                            device = null
+                            app = null
+                            onDisconnected?.invoke()
+                        }
                     }
                 } catch (_: Exception) {}
             }
@@ -84,11 +95,11 @@ class CiqLink(
         try {
             c.getApplicationInfo(appIdHex, d, object : ConnectIQ.IQApplicationInfoListener {
                 override fun onApplicationInfoReceived(foundApp: IQApp) {
+                    if (ciq !== c) return
                     log("watch app INSTALLED on ${d.friendlyName}")
                     device = d
                     app = foundApp
-                    registerAck(d, foundApp)
-                    onReady?.invoke()
+                    if (registerAck(d, foundApp)) onReady?.invoke()
                 }
                 override fun onApplicationNotInstalled(applicationId: String) {
                     log("watch app NOT installed on ${d.friendlyName}")
@@ -99,10 +110,11 @@ class CiqLink(
         }
     }
 
-    private fun registerAck(d: IQDevice, a: IQApp) {
-        val c = ciq ?: return
+    private fun registerAck(d: IQDevice, a: IQApp): Boolean {
+        val c = ciq ?: return false
         try {
             c.registerForAppEvents(d, a) { _, _, message, _ ->
+                if (ciq !== c || device?.deviceIdentifier != d.deviceIdentifier) return@registerForAppEvents
                 for (e in message) {
                     val map = e as? Map<*, *> ?: continue
                     val t = map["t"] as? String ?: continue
@@ -113,8 +125,10 @@ class CiqLink(
                     }
                 }
             }
+            return true
         } catch (e: Exception) {
             log("appEvents err: ${e.message}")
+            return false
         }
     }
 
@@ -150,7 +164,14 @@ class CiqLink(
         try { block() ?: emptyList() } catch (e: Exception) { log("list err: ${e.message}"); emptyList() }
 
     fun stop() {
+        onReady = null
+        onDisconnected = null
+        onAck = null
+        onNack = null
         handler.removeCallbacksAndMessages(null)
         try { ciq?.shutdown(ctx) } catch (_: Exception) {}
+        ciq = null
+        device = null
+        app = null
     }
 }

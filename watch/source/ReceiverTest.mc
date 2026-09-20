@@ -1,5 +1,35 @@
 using Toybox.Test;
 
+(:test)
+function ignoresMalformedMessages(logger) {
+    var r = new RouteReceiver();
+    r.handle(42);
+    r.handle({ "t" => 7 });
+    r.handle({ "t" => "E" });
+    r.handle({ "t" => "H", "v" => 99, "np" => 2, "nc" => 1, "nm" => 0, "name" => "bad" });
+    Test.assertEqual(r.state, :idle);
+    r.handle({ "t" => "H", "v" => 1, "np" => 2, "nc" => 1, "nm" => 0, "name" => "ok" });
+    r.handle({ "t" => "L", "s" => 0, "p" => [[1]] });
+    r.handle({ "t" => "L", "s" => 4, "p" => [[1, 2]] });
+    Test.assertEqual(r.chunks.size(), 0);
+    r.handle({ "t" => "L", "s" => 0, "p" => [[50000000, 30000000], [100, 100]] });
+    r.handle({ "t" => "E" });
+    r.handle({ "t" => "E" });
+    Test.assertEqual(r.state, :ready);
+    return true;
+}
+
+(:test)
+function smoothingKeepsEasternLongitude(logger) {
+    var model = new RouteModel([[50000000, 170000000], [50000100, 170000100]], []);
+    var ns = new NavState(model);
+    ns.setFix(50000000, 170000000, null);
+    ns.setFix(50000100, 170000100, null);
+    Test.assertEqual(ns.meLonMicro, 170000030);
+    Test.assertEqual(ns.meLatMicro, 50000030);
+    return true;
+}
+
 // CIQ unit-тесты сборки маршрута (Gate 2). Запуск: monkeyc --unit-test + monkeydo -t.
 
 (:test)

@@ -22,6 +22,7 @@ class Transfer(
     private val timeout = Runnable { sender?.onTimeout() }
 
     fun start() {
+        cancel()
         val transport = object : Transport {
             override fun send(payload: Map<String, Any?>) {
                 link.sendMessage(payload) { /* статус отправки; ack ждём отдельно */ }
@@ -45,6 +46,8 @@ class Transfer(
     }
 
     fun cancel() {
+        sender?.cancel()
+        sender = null
         handler.removeCallbacks(timeout)
     }
 }

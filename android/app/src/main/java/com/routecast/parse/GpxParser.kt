@@ -13,6 +13,11 @@ object GpxParser {
 
     fun parse(xml: String): List<Pt> {
         if (xml.isBlank()) throw RouteParseException("пустой GPX")
+        // GPX needs no DTD. Reject before parsing, including on Android parsers
+        // that do not support the optional XML security features below.
+        if (xml.contains("<!DOCTYPE", ignoreCase = true) || xml.contains("<!ENTITY", ignoreCase = true)) {
+            throw RouteParseException("DTD и XML entities в GPX не поддерживаются")
+        }
         val doc = try {
             val f = DocumentBuilderFactory.newInstance().apply {
                 isNamespaceAware = false
@@ -44,7 +49,11 @@ object GpxParser {
             val el = nodes.item(i) as? Element ?: continue
             val lat = el.getAttribute("lat").toDoubleOrNull()
             val lon = el.getAttribute("lon").toDoubleOrNull()
-            if (lat != null && lon != null) out.add(Pt(lat, lon))
+            if (lat == null || lon == null || !lat.isFinite() || !lon.isFinite() ||
+                lat !in -90.0..90.0 || lon !in -180.0..180.0) {
+                throw RouteParseException("некорректные координаты GPX")
+            }
+            out.add(Pt(lat, lon))
         }
         return out
     }

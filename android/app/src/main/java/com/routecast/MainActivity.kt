@@ -12,6 +12,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import java.util.concurrent.Executors
 
 /**
  * Share-target: ловит расшаренный/открытый GPX/GeoJSON, прогоняет через RouteProcessor,
@@ -27,6 +28,8 @@ class MainActivity : Activity() {
     private var watchReady = false      // часы найдены и watch-апп установлен
     private var autoSendPending = false // маршрут пришёл через share -> отправить, как будем готовы
     private var sending = false         // идёт передача (защита от двойного старта)
+    private val importWorker = Executors.newSingleThreadExecutor()
+    private var importGeneration = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -86,8 +89,6 @@ class MainActivity : Activity() {
         }
         if (uri != null) {
             process(uri)
-            // Маршрут пришёл через "Поделиться" -> отправляем на часы автоматически.
-            if (lastEnc != null) { autoSendPending = true; maybeAutoSend() }
             return true
         }
         return false
@@ -103,18 +104,42 @@ class MainActivity : Activity() {
     }
 
     private fun process(uri: Uri) {
-        try {
-            val content = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-                ?: throw IllegalStateException("не удалось прочитать файл")
-            val name = uri.lastPathSegment ?: "route"
-            show(RouteProcessor.process(name, content))
-        } catch (e: Exception) {
-            out.text = "Ошибка: ${e.message}"
-            Log.e("routecast", "parse failed", e)
+        clearRoute()
+        val generation = importGeneration
+        out.text = "Чтение маршрута…"
+        importWorker.execute {
+            try {
+                val content = contentResolver.openInputStream(uri)?.bufferedReader()?.use {
+                    val chars = CharArray(Config.MAX_INPUT_CHARS + 1)
+                    var size = 0
+                    while (size < chars.size) {
+                        val n = it.read(chars, size, chars.size - size)
+                        if (n < 0) break
+                        size += n
+                    }
+                    require(size <= Config.MAX_INPUT_CHARS) { "слишком большой файл маршрута" }
+                    String(chars, 0, size)
+                } ?: throw IllegalStateException("не удалось прочитать файл")
+                val result = RouteProcessor.process(uri.lastPathSegment ?: "route", content)
+                runOnUiThread {
+                    if (!isDestroyed && generation == importGeneration) {
+                        show(result)
+                        autoSendPending = true
+                        maybeAutoSend()
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    if (!isDestroyed && generation == importGeneration) out.text = "Ошибка: ${e.message}"
+                }
+                Log.e("routecast", "parse failed", e)
+            }
         }
     }
 
     private fun connectWatch() {
+        transfer?.cancel()
+        sending = false
         out.append("\n--- Connect IQ ---\n")
         watchReady = false
         ciqLink?.stop()
@@ -126,12 +151,23 @@ class MainActivity : Activity() {
         }
         link.onReady = {
             runOnUiThread {
+                if (ciqLink !== link || isDestroyed) return@runOnUiThread
                 watchReady = true
                 out.append("часы на связи\n")
                 maybeAutoSend()
             }
         }
         ciqLink = link
+        link.onDisconnected = {
+            runOnUiThread {
+                if (ciqLink === link && !isDestroyed) {
+                    watchReady = false
+                    transfer?.cancel()
+                    sending = false
+                    out.append("связь с часами потеряна; после подключения повторите отправку\n")
+                }
+            }
+        }
         link.start()
     }
 
@@ -139,7 +175,7 @@ class MainActivity : Activity() {
         val enc = lastEnc
         val link = ciqLink
         if (enc == null) { out.append("сначала загрузите маршрут\n"); return }
-        if (link == null) { out.append("сначала Connect to watch\n"); return }
+        if (link == null || !watchReady) { out.append("сначала подключите часы\n"); return }
         if (sending) { out.append("передача уже идёт…\n"); return }
         sending = true
         link.openApp()
@@ -154,11 +190,15 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        importGeneration++
+        importWorker.shutdownNow()
+        transfer?.cancel()
         super.onDestroy()
         ciqLink?.stop()
     }
 
     private fun loadSample() {
+        clearRoute()
         // если положен реальный трек — берём его, иначе встроенный образец
         val name = try {
             if (assets.list("")?.contains("real_route.gpx") == true) "real_route.gpx" else "short_city.gpx"
@@ -188,5 +228,14 @@ class MainActivity : Activity() {
         sb.appendLine("  M (${r.encoded.maneuvers.m.size}) -> E")
         out.text = sb.toString()
         Log.i("routecast", "\n" + sb.toString())
+    }
+
+    private fun clearRoute() {
+        importGeneration++
+        transfer?.cancel()
+        transfer = null
+        sending = false
+        lastEnc = null
+        autoSendPending = false
     }
 }

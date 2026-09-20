@@ -12,6 +12,16 @@ import com.routecast.model.Pt
 object GeoJsonParser {
 
     fun parse(json: String): List<Pt> {
+        try {
+            return parseInternal(json)
+        } catch (e: RouteParseException) {
+            throw e
+        } catch (e: Exception) {
+            throw RouteParseException("битый GeoJSON: ${e.message}")
+        }
+    }
+
+    private fun parseInternal(json: String): List<Pt> {
         if (json.isBlank()) throw RouteParseException("пустой GeoJSON")
         val root = try {
             JsonParser.parseString(json).asJsonObject
@@ -28,6 +38,9 @@ object GeoJsonParser {
             val pair = c.asJsonArray
             val lon = pair[0].asDouble
             val lat = pair[1].asDouble
+            if (!lat.isFinite() || !lon.isFinite() || lat !in -90.0..90.0 || lon !in -180.0..180.0) {
+                throw RouteParseException("некорректные координаты GeoJSON")
+            }
             pts.add(Pt(lat, lon))
         }
         return pts

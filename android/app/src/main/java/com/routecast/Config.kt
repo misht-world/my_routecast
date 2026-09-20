@@ -6,6 +6,8 @@ package com.routecast
  */
 object Config {
     const val PROTOCOL_VERSION = 1
+    const val MAX_INPUT_CHARS = 2_000_000
+    const val MAX_INPUT_POINTS = 10_000
 
     // Децимация / чанкинг
     const val MAX_LINE_POINTS = 250

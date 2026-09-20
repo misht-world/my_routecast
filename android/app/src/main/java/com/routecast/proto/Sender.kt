@@ -18,18 +18,24 @@ class Sender(
 ) {
     private var idx = 0
     private var retries = 0
-    private var finished = false
+    private var finished = true
 
     fun start() {
+        if (!finished) return
         idx = 0
         retries = 0
         finished = false
+        if (packets.isEmpty()) {
+            finished = true
+            onDone()
+            return
+        }
         sendCurrent()
     }
 
     private fun sendCurrent() {
-        transport.send(packets[idx].payload)
         onArm()
+        transport.send(packets[idx].payload)
     }
 
     /** Подтверждение принятого пакета. */
@@ -70,6 +76,8 @@ class Sender(
     }
 
     val isFinished: Boolean get() = finished
+
+    fun cancel() { finished = true }
 
     /** Ожидаемый сейчас seq подтверждения (для UI/тестов). */
     val currentAckSeq: Int get() = if (idx < packets.size) packets[idx].ackSeq else Int.MIN_VALUE

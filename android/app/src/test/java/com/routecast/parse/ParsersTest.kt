@@ -7,6 +7,34 @@ import org.junit.Test
 
 class ParsersTest {
 
+    @Test
+    fun rejectsInvalidCoordinatesAndMalformedGeometry() {
+        for (lat in listOf("NaN", "Infinity", "91", "missing")) {
+            assertThrows(RouteParseException::class.java) {
+                GpxParser.parse("<gpx><trkpt lat=\"$lat\" lon=\"0\"/></gpx>")
+            }
+        }
+        for (coords in listOf("[[0,91]]", "[[181,0]]", "[[0]]", "[null]", "[[0,\"NaN\"]]")) {
+            assertThrows(RouteParseException::class.java) {
+                GeoJsonParser.parse("""{"type":"LineString","coordinates":$coords}""")
+            }
+        }
+    }
+
+    @Test
+    fun rejectsXmlEntityDeclarations() {
+        assertThrows(RouteParseException::class.java) {
+            GpxParser.parse("""<!DOCTYPE gpx [<!ENTITY x "0">]><gpx><trkpt lat="&x;" lon="0"/></gpx>""")
+        }
+    }
+
+    @Test
+    fun rejectsNonNavigableRoute() {
+        assertThrows(RouteParseException::class.java) {
+            com.routecast.RouteProcessor.process("one", "<gpx><trkpt lat=\"1\" lon=\"2\"/></gpx>")
+        }
+    }
+
     private val gpx = """
         <gpx version="1.1">
           <trk><trkseg>

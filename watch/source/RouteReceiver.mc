@@ -1,5 +1,6 @@
 using Toybox.Communications;
 using Toybox.System;
+using Toybox.Lang;
 
 // Приём и сборка маршрута по протоколу H/L/M/E (SPEC §5.2, docs/protocol.md).
 // Gate 2, шаг 1: собираем и логируем, без рендера линии.
@@ -29,9 +30,9 @@ class RouteReceiver {
     }
 
     function handle(d) {
-        if (d == null) { return; }
+        if (!(d instanceof Lang.Dictionary)) { return; }
         var t = d["t"];
-        if (t == null) { return; }
+        if (!(t instanceof Lang.String)) { return; }
         if (t.equals("H")) { onHeader(d); }
         else if (t.equals("L")) { onLine(d); }
         else if (t.equals("M")) { onManeuvers(d); }
@@ -39,6 +40,11 @@ class RouteReceiver {
     }
 
     function onHeader(d) {
+        if (d["v"] != 1 || !(d["np"] instanceof Lang.Number) ||
+            !(d["nc"] instanceof Lang.Number) || !(d["nm"] instanceof Lang.Number) ||
+            !(d["name"] instanceof Lang.String)) { nack(-1); return; }
+        if (d["np"] < 2 || d["np"] > Cfg.MAX_LINE_POINTS ||
+            d["nc"] < 1 || d["nc"] > d["np"] || d["nm"] < 0) { nack(-1); return; }
         reset();
         np = d["np"]; nc = d["nc"]; nm = d["nm"]; name = d["name"];
         state = :receiving;
@@ -48,18 +54,50 @@ class RouteReceiver {
 
     function onLine(d) {
         var s = d["s"];
+        if (state != :receiving || !(s instanceof Lang.Number)) { return; }
+        var p = d["p"];
+        if (s < 0 || s >= nc || !(p instanceof Lang.Array)) { nack(s); return; }
+        if (p.size() < 1 || p.size() > Cfg.POINTS_PER_CHUNK) { nack(s); return; }
+        for (var i = 0; i < p.size(); i++) {
+            var pair = p[i];
+            if (!(pair instanceof Lang.Array)) { nack(s); return; }
+            if (pair.size() != 2 || !(pair[0] instanceof Lang.Number) ||
+                !(pair[1] instanceof Lang.Number)) { nack(s); return; }
+            if (pair[0] < -180000000 || pair[0] > 180000000 ||
+                pair[1] < -360000000 || pair[1] > 360000000) { nack(s); return; }
+        }
+        var count = p.size();
+        for (var seq = 0; seq < nc; seq++) {
+            var previous = chunks.get(seq);
+            if (seq != s && previous != null) { count += previous.size(); }
+        }
+        if (count > np) { nack(s); return; }
         chunks.put(s, d["p"]);
         log("L s=" + s + " pts=" + d["p"].size());
         ack(s);
     }
 
     function onManeuvers(d) {
+        if (state != :receiving) { return; }
+        var m = d["m"];
+        if (!(m instanceof Lang.Array)) { nack(-2); return; }
+        if (m.size() != nm) { nack(-2); return; }
+        for (var i = 0; i < m.size(); i++) {
+            var row = m[i];
+            if (!(row instanceof Lang.Array)) { nack(-2); return; }
+            if (row.size() != 3 || !(row[0] instanceof Lang.Number) ||
+                !(row[1] instanceof Lang.Number) || !(row[2] instanceof Lang.Number)) { nack(-2); return; }
+            if (row[0] < 0 || row[0] >= np || row[2] < 0 ||
+                (row[1] != 9 && (row[1] < -3 || row[1] > 3))) { nack(-2); return; }
+        }
         maneuvers = d["m"];
         log("M count=" + maneuvers.size());
         ack(-2);
     }
 
     function onEnd(d) {
+        if (state == :ready) { ack(-3); return; }
+        if (state != :receiving) { return; }
         points = assemble();
         if (points == null) {
             log("E: пропущен чанк " + firstMissing());
@@ -88,6 +126,8 @@ class RouteReceiver {
                 var dd = p[i];
                 if (first) { lat = dd[0]; lon = dd[1]; first = false; }
                 else { lat += dd[0]; lon += dd[1]; }
+                if (lat < -90000000 || lat > 90000000 ||
+                    lon < -180000000 || lon > 180000000 || out.size() >= np) { return []; }
                 out.add([lat, lon]);
             }
         }
