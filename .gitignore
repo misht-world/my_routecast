@@ -22,3 +22,7 @@ android/app/src/main/assets/real_route.gpx
 
 # MockFeeder регенерируется из приватного трека (RealRouteMockGen) — не коммитить
 watch/source/MockFeeder.mc
+
+# Android release signing — НЕ коммитить (потеря ключа = нет обновлений поверх)
+android/keystore.properties
+android/*.jks

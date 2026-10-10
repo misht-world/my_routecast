@@ -43,7 +43,7 @@ class MainView extends WatchUi.View {
             if (r.hasRoute()) { dc.drawText(cx, H - 34, Graphics.FONT_XTINY, "BACK: saved route", Graphics.TEXT_JUSTIFY_CENTER); }
         } else {
             dc.drawText(cx, H / 2 - 16, Graphics.FONT_SMALL, "Waiting for route", Graphics.TEXT_JUSTIFY_CENTER);
-            dc.drawText(cx, H / 2 + 12, Graphics.FONT_TINY, "from phone", Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(cx, H / 2 + 12, Graphics.FONT_TINY, "from phone (.gpx)", Graphics.TEXT_JUSTIFY_CENTER);
         }
     }
 

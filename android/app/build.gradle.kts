@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -37,6 +39,29 @@ android {
         create("sim") {
             dimension = "link"
             buildConfigField("String", "CIQ_CONNECT_TYPE", "\"TETHERED\"")
+        }
+    }
+
+    // Release-подпись своим ключом (не debug). Секреты — в gitignored keystore.properties;
+    // без него release остаётся неподписанным, debug/sim собираются как обычно.
+    val keystorePropsFile = rootProject.file("keystore.properties")
+    val hasKeystore = keystorePropsFile.exists()
+    val keystoreProps = Properties()
+    if (hasKeystore) { keystorePropsFile.inputStream().use { keystoreProps.load(it) } }
+    signingConfigs {
+        if (hasKeystore) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false // CIQ SDK использует рефлексию — не обфусцируем
+            if (hasKeystore) { signingConfig = signingConfigs.getByName("release") }
         }
     }
 }
