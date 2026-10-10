@@ -60,6 +60,12 @@ Grab the latest artifacts from **[Releases](../../releases)**:
 
 Requirements: Garmin Connect Mobile installed and the watch paired.
 
+The APK is self-signed (not distributed through Google Play), so a phone will show a one-time
+"install from unknown sources" prompt and may run a Play Protect scan — this is expected for any
+sideloaded app. Each release lists the APK's **SHA-256** so you can verify the file you
+downloaded is the one that was published. The watch `.prg` sideloads on any Instinct 3 without a
+per-user key.
+
 ## Usage
 
 1. **Open the RouteCast app on the watch** (Connect IQ can't wake a watch app from the phone —
@@ -117,3 +123,9 @@ my_routecast/
 ├── android/          # Kotlin companion: Share target → parse → transfer
 └── watch/            # Connect IQ app (Monkey C): receive → render line + pseudo-TBT
 ```
+
+## License
+
+[MIT](LICENSE) — free to use, modify and redistribute, keeping the copyright notice. Provided
+"as is", with no warranty; this is an offline hobby project, not a substitute for proper
+navigation — use at your own risk.
