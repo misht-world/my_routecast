@@ -25,8 +25,16 @@ class MainView extends WatchUi.View {
         dc.clear();
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
 
-        // Версия — слева (не по центру: центр-верх частично перекрыт субэкраном справа-сверху)
-        dc.drawText(6, 40, Graphics.FONT_XTINY, Cfg.VERSION, Graphics.TEXT_JUSTIFY_LEFT);
+        // Версия — вертикальным столбиком по левому краю (на MIP нет векторных шрифтов для
+        // drawAngledText). Не лезет ни под субэкран справа-сверху, ни в центр с маршрутом.
+        var ver = Cfg.VERSION;
+        var step = Graphics.getFontHeight(Graphics.FONT_XTINY) - 5;
+        if (step < 9) { step = 9; }
+        var vy = H / 2 - (ver.length() * step) / 2;
+        for (var vi = 0; vi < ver.length(); vi++) {
+            dc.drawText(9, vy + vi * step, Graphics.FONT_XTINY,
+                ver.substring(vi, vi + 1), Graphics.TEXT_JUSTIFY_CENTER);
+        }
 
         if (r.state == :ready) {
             drawOverview(dc, W, H, cx);
