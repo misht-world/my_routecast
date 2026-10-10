@@ -3,7 +3,7 @@
 module Cfg {
     const DEMO_AUTOLOAD = false; // авто-загрузка мок-маршрута при старте (без телефона)
     const DEMO_MOVE = false;     // авто-движение по маршруту (нет GPS-плеера в симуляторе)
-    const VERSION = "v0.5.1";
+    const VERSION = "v0.5.2";
     const PROTOCOL_VERSION = 2;
     const MAX_MANEUVERS = 250;
     const MANEUVERS_PER_CHUNK = 20;

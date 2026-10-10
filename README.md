@@ -7,9 +7,9 @@ pointer, single-buzz turn cues and off-route alerts. Fully offline, no cloud, no
 ![platform](https://img.shields.io/badge/watch-Garmin%20Instinct%203-black)
 ![companion](https://img.shields.io/badge/phone-Android-3ddc84)
 ![offline](https://img.shields.io/badge/network-none%20(offline)-informational)
-![status](https://img.shields.io/badge/status-validation%20v0.5.1-orange)
+![status](https://img.shields.io/badge/status-validation%20v0.5.2-orange)
 
-Current development version: **0.5.1**, protocol **v2**. See [CHANGELOG.md](CHANGELOG.md)
+Current development version: **0.5.2**, protocol **v2**. See [CHANGELOG.md](CHANGELOG.md)
 for version history, [VERSIONING.md](VERSIONING.md) for release rules, and
 [RELIABILITY.md](RELIABILITY.md) for verified fixes and remaining reliability risks.
 
