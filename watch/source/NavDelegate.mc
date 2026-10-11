@@ -55,6 +55,7 @@ class NavDelegate extends WatchUi.BehaviorDelegate {
         var menu = new WatchUi.Menu2({ :title => "Navigation" });
         menu.addItem(new WatchUi.MenuItem(ns.paused ? "Resume" : "Pause", null, :pause, null));
         menu.addItem(new WatchUi.MenuItem("Signals", ns.signalsOn ? "On" : "Off", :signals, null));
+        menu.addItem(new WatchUi.MenuItem("Compass", ns.useCompass ? "On" : "Off", :compass, null));
         menu.addItem(new WatchUi.MenuItem("Finish", null, :finish, null));
         WatchUi.pushView(menu, new NavMenuDelegate(ns), WatchUi.SLIDE_UP);
         return true;

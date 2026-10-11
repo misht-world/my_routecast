@@ -7,10 +7,13 @@ class RouteReceiver {
     var state, points, maneuvers, name, committedId;
     var id, np, nc, nm, mc, pendingName, pendingPoints, pendingManeuvers, nextSeq;
     var lastMessage, logLine, replyEnabled, store, lastReply;
+    // Маршрут лишь сохранён с прошлого раза (или навигация завершена): стартовый экран
+    // показывает ожидание нового трека, прошлый — по START/MENU. Свежий приём сбрасывает.
+    var savedOnly;
 
     function initialize() {
         points = []; maneuvers = []; name = ""; committedId = null;
-        store = null; replyEnabled = false; logLine = ""; lastReply = null;
+        store = null; replyEnabled = false; logLine = ""; lastReply = null; savedOnly = false;
         cancelPending();
     }
 
@@ -31,7 +34,7 @@ class RouteReceiver {
             var data = store.load();
             if (RouteData.valid(data)) {
                 points = data["p"]; maneuvers = data["m"]; name = data["name"];
-                committedId = data["id"]; state = :ready;
+                committedId = data["id"]; state = :ready; savedOnly = true;
             }
         } catch (e) { logLine = "Saved route unavailable"; }
     }
@@ -132,6 +135,7 @@ class RouteReceiver {
             catch (e) { reply("N", id, -3, "storage"); cancelPending(); logLine = "Could not save route"; return; }
         }
         points = pendingPoints; maneuvers = pendingManeuvers; name = pendingName; committedId = id;
+        savedOnly = false;
         cancelPending(); logLine = "Route ready";
         reply("A", committedId, -3, null);
     }

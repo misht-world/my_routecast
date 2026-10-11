@@ -35,7 +35,33 @@ class RoutecastApp extends Application.AppBase {
     }
 
     function onStop(state) {
+        saveNavPrefs();
         endSession();
+    }
+
+    // Поправка компаса и выбор «Compass» живут между запусками: в начале маршрута вид
+    // не опирается на «сырой» компас этих часов.
+    function loadNavPrefs(ns) {
+        try {
+            var b = Application.Storage.getValue("headingBias");
+            if (b instanceof Toybox.Lang.Float || b instanceof Toybox.Lang.Double) {
+                ns.headingBias = ns.normRad(b.toFloat());
+            }
+            var c = Application.Storage.getValue("useCompass");
+            if (c instanceof Toybox.Lang.Boolean) { ns.useCompass = c; }
+        } catch (e) {
+        }
+    }
+
+    function saveNavPrefs() {
+        if (navState == null) { return; }
+        try {
+            Application.Storage.setValue("useCompass", navState.useCompass);
+            if (navState.biasLearned) {
+                Application.Storage.setValue("headingBias", navState.headingBias.toFloat());
+            }
+        } catch (e) {
+        }
     }
 
     // Старт сессии записи — именно это включает GPS-приёмник для CIQ-аппа.
@@ -81,6 +107,7 @@ class RoutecastApp extends Application.AppBase {
         if (receiver.state != :ready) { return; }
         navState = new NavState(new RouteModel(receiver.points, receiver.maneuvers));
         navState.demo = Cfg.DEMO_MOVE; // в симуляторе едем сами; реальный GPS перебьёт
+        loadNavPrefs(navState);
         startSession(); // поднять GPS-антенну (enableLocationEvents уже сделан в onStart — НЕ повторяем)
         WatchUi.pushView(new NavView(navState), new NavDelegate(navState), WatchUi.SLIDE_LEFT);
     }
@@ -98,8 +125,10 @@ class RoutecastApp extends Application.AppBase {
     // Завершение: отбрасываем сессию и ОЧИЩАЕМ маршрут -> IDLE.
     // Регистрацию позиции НЕ снимаем (она одна, на весь жизненный цикл аппа).
     function finishNavigation() {
+        saveNavPrefs();
         endSession();
         receiver.reset();
+        receiver.savedOnly = true; // после завершения — экран ожидания; прошлый маршрут по START
         navState = null;
     }
 

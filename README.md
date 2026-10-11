@@ -7,9 +7,9 @@ pointer, single-buzz turn cues and off-route alerts. Fully offline, no cloud, no
 ![platform](https://img.shields.io/badge/watch-Garmin%20Instinct%203-black)
 ![companion](https://img.shields.io/badge/phone-Android-3ddc84)
 ![offline](https://img.shields.io/badge/network-none%20(offline)-informational)
-![status](https://img.shields.io/badge/status-validation%20v0.5.2-orange)
+![status](https://img.shields.io/badge/status-validation%20v0.6.0-orange)
 
-Current development version: **0.5.2**, protocol **v2**. See [CHANGELOG.md](CHANGELOG.md)
+Current development version: **0.6.0**, protocol **v2**. See [CHANGELOG.md](CHANGELOG.md)
 for version history, [VERSIONING.md](VERSIONING.md) for release rules, and
 [RELIABILITY.md](RELIABILITY.md) for verified fixes and remaining reliability risks.
 
@@ -28,7 +28,8 @@ line itself — no base map, no native navigation, no internet.
 - **One-tap share → over-the-air transfer.** Share a GPX from Organic Maps; the companion
   auto-sends it to the watch (a manual *Send* button stays as a fallback).
 - **Heading-up map.** The route rotates to your travel direction — GPS course while moving,
-  GPS-corrected compass while standing still, smoothed so it doesn't sway.
+  GPS-corrected compass while standing still, smoothed so it doesn't sway. The compass can be
+  turned off in the navigation menu (the map then holds the last GPS direction when you stop).
 - **Pseudo turn-by-turn.** Maneuvers are detected on the phone; the watch buzzes **once, at
   the turn** (battery-friendly) and always shows a bearing pointer in the sub-screen.
 - **Off-route alert** with a time hysteresis so GPS jitter doesn't false-trigger.
@@ -71,8 +72,10 @@ per-user key.
 1. **Open the RouteCast app on the watch** (Connect IQ can't wake a watch app from the phone —
    this step is deliberate; see [SPEC.md](SPEC.md)).
 2. In Organic Maps: build a route → **Share → GPX → RouteCast**.
-3. The route transfers automatically and draws on the watch. Walk the line; the pointer shows
-   the bearing, and you get one short buzz at each turn.
+3. The route transfers automatically and draws on the watch. Press **START** to navigate. Walk
+   the line; the pointer shows the bearing, and you get one short buzz at each turn.
+4. The last route is kept on the watch: on the "Waiting for route" screen press **START** to
+   bring it back.
 
 ## Build from source
 

@@ -16,9 +16,7 @@ class NavView extends WatchUi.View {
     const TURN_NOW_M = 8.0;  // вибро В МОМЕНТ поворота (в пределах стольки метров до вершины)
     const OFFROUTE_M = 15.0;
     const OFFROUTE_T_MS = 5000; // выдержка off-route, мс
-    const DEMO_STEP = 5.0;  // м за тик демо
-    const MOVING_SPD = 1.0; // м/с — выше этого считаем «в движении» -> курс из GPS, не компас
-    const HEAD_SMOOTH = 0.2; // сглаживание курса (0..1): меньше — плавнее, но ленивее
+    const DEMO_STEP = 5.0;  // м за тик демо (параметры курса — в Cfg)
     const CULL_MULT = 1.6;  // рисуем только точки в пределах viewMeters*CULL_MULT от позиции
 
     var ns;
@@ -59,30 +57,18 @@ class NavView extends WatchUi.View {
         if (info != null) {
             ns.gpsAcc = (info.accuracy != null) ? info.accuracy : 0;
             ns.gpsHasPos = (info.position != null);
-            // Курс. В движении — course-over-ground из GPS (истинный, не зависит от наклона руки);
-            // заодно копим поправку bias = GPS−компас. Стоя — компас+bias: живое вращение
-            // от компаса, но абсолютный «север» подтянут к GPS (компас на этом корпусе абс. врёт).
+            // Курс GPS пригоден: есть позиция, качество >= POOR и сэмпл свежий. Мягче, чем допуск
+            // позиции для прогресса (GOOD): курс GNSS по допплеру надёжен и при слабой позиции.
+            var gpsOk = false;
+            if (info.position != null && info.when != null &&
+                    ns.gpsAcc >= Cfg.HEADING_MIN_QUALITY) {
+                var age = Time.now().value() - info.when.value();
+                gpsOk = age >= -1 && age <= Cfg.HEADING_MAX_AGE_SEC;
+            }
             var spd = (info.speed != null) ? info.speed : 0.0;
             var sInfo = Sensor.getInfo();
             var ch = (sInfo != null) ? sInfo.heading : null;
-            var target = null;
-            if (ns.freshFix(Time.now().value()) && spd >= MOVING_SPD && info.heading != null) {
-                target = info.heading;
-                if (ch != null) {
-                    var d = normRad(info.heading - ch);
-                    ns.headingBias = ns.headingBias + 0.25 * normRad(d - ns.headingBias);
-                }
-            } else if (ch != null) {
-                target = ch + ns.headingBias;
-            }
-            // Сглаживаем курс по кратчайшей дуге — гасим дрожь GPS/компаса (карта не качается).
-            if (target != null) {
-                if (ns.headingRad == null) {
-                    ns.headingRad = target;
-                } else {
-                    ns.headingRad = ns.headingRad + HEAD_SMOOTH * normRad(target - ns.headingRad);
-                }
-            }
+            ns.updateHeading(info.heading, spd, gpsOk, ch, System.getTimer());
         }
         WatchUi.requestUpdate();
     }
@@ -268,16 +254,6 @@ class NavView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.fillPolygon([[nX, nY], [blX, blY], [brX, brY]]);
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-    }
-
-    // Нормировка угла (рад) в [−π, π] — БЕЗ циклов (исключаем любой риск watchdog).
-    function normRad(a) {
-        var twoPi = 2.0 * Math.PI;
-        var k = ((a + Math.PI) / twoPi).toNumber(); // усечение к нулю
-        var x = a - k * twoPi;
-        if (x > Math.PI) { x -= twoPi; }
-        else if (x < -Math.PI) { x += twoPi; }
-        return x;
     }
 
     function fmtDist(m) {

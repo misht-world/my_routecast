@@ -21,6 +21,11 @@ class NavMenuDelegate extends WatchUi.Menu2InputDelegate {
         } else if (id == :signals) {
             ns.signalsOn = !ns.signalsOn;
             WatchUi.popView(WatchUi.SLIDE_IMMEDIATE); // вернуться к навигации
+        } else if (id == :compass) {
+            // Off: стоя карта держит последний курс GPS (не врёт, но не вращается на месте)
+            ns.useCompass = !ns.useCompass;
+            app.saveNavPrefs();
+            WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
         } else {
             if (ns.paused) {
                 ns.paused = false;

@@ -44,6 +44,20 @@ function transferCommitsAndRestoresOnce(logger) {
 }
 
 (:test)
+function restoredRouteWaitsUntilRequested(logger) {
+    var memory = new MemoryRouteStore();
+    var first = new RouteReceiver(); first.store = memory;
+    completeTestRoute(first, transferIdA());
+    Test.assert(!first.savedOnly); // свежий приём — сразу обзор
+    var r = new RouteReceiver(); r.store = memory; r.restore();
+    Test.assertEqual(r.state, :ready);
+    Test.assert(r.savedOnly); // после запуска — экран ожидания, прошлый маршрут по START
+    completeTestRoute(r, transferIdB());
+    Test.assert(!r.savedOnly); // новый трек показывается сразу
+    return true;
+}
+
+(:test)
 function oldRouteSurvivesFailedReplacement(logger) {
     var r = new RouteReceiver(); var memory = new MemoryRouteStore(); r.store = memory;
     completeTestRoute(r, transferIdA());

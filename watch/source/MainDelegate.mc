@@ -1,7 +1,8 @@
 using Toybox.WatchUi;
 using Toybox.Application;
 
-// START: если маршрут не собран — прогнать мок (Gate 2); если READY — старт навигации.
+// Стартовый экран. START: на ожидании — показать прошлый маршрут; на обзоре — навигация.
+// MENU — тоже прошлый маршрут. BACK: отмена приёма / спрятать обзор / выход.
 class MainDelegate extends WatchUi.BehaviorDelegate {
 
     var r;
@@ -13,7 +14,8 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
 
     function onSelect() {
         if (r.state == :ready) {
-            (Application.getApp() as RoutecastApp).startNavigation();
+            if (r.savedOnly) { r.savedOnly = false; } // показать прошлый маршрут
+            else { (Application.getApp() as RoutecastApp).startNavigation(); }
         } else if (Cfg.DEMO_AUTOLOAD) {
             DemoRoute.feed(r);
         }
@@ -21,8 +23,18 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
         return true;
     }
 
+    function onMenu() {
+        if (r.state == :ready && r.savedOnly) {
+            r.savedOnly = false; WatchUi.requestUpdate(); return true;
+        }
+        return false;
+    }
+
     function onBack() {
-        if (r.state != :receiving) { return false; }
-        r.cancelPending(); WatchUi.requestUpdate(); return true;
+        if (r.state == :receiving) { r.cancelPending(); WatchUi.requestUpdate(); return true; }
+        if (r.state == :ready && !r.savedOnly) {
+            r.savedOnly = true; WatchUi.requestUpdate(); return true; // назад к ожиданию
+        }
+        return false; // выход из приложения
     }
 }

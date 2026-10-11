@@ -36,7 +36,7 @@ class MainView extends WatchUi.View {
                 ver.substring(vi, vi + 1), Graphics.TEXT_JUSTIFY_CENTER);
         }
 
-        if (r.state == :ready) {
+        if (r.state == :ready && !r.savedOnly) {
             drawOverview(dc, W, H, cx);
             drawPlay(dc); // ▶ в субэкране
         } else if (r.state == :receiving) {
@@ -48,10 +48,14 @@ class MainView extends WatchUi.View {
             dc.drawRectangle(x, y, bw, 10);
             var frac = (r.nc + r.mc > 0) ? (r.nextSeq.toFloat() / (r.nc + r.mc)) : 0.0;
             dc.fillRectangle(x, y, (bw * frac).toNumber(), 10);
-            if (r.hasRoute()) { dc.drawText(cx, H - 34, Graphics.FONT_XTINY, "BACK: saved route", Graphics.TEXT_JUSTIFY_CENTER); }
+            dc.drawText(cx, H - 34, Graphics.FONT_XTINY, "BACK: cancel", Graphics.TEXT_JUSTIFY_CENTER);
         } else {
+            // Ожидание нового трека (в т.ч. когда есть сохранённый — он доступен по START)
             dc.drawText(cx, H / 2 - 16, Graphics.FONT_SMALL, "Waiting for route", Graphics.TEXT_JUSTIFY_CENTER);
             dc.drawText(cx, H / 2 + 12, Graphics.FONT_TINY, "from phone (.gpx)", Graphics.TEXT_JUSTIFY_CENTER);
+            if (r.hasRoute()) {
+                dc.drawText(cx, H - 34, Graphics.FONT_XTINY, "START: last route", Graphics.TEXT_JUSTIFY_CENTER);
+            }
         }
     }
 

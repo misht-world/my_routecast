@@ -1,3 +1,5 @@
+using Toybox.Math;
+
 // Состояние навигации: маршрут + текущая позиция/курс + зум.
 class NavState {
 
@@ -9,6 +11,10 @@ class NavState {
     var meLonMicro;
     var headingRad;   // Float или null (нет курса с GPS)
     var headingBias;  // поправка «компас -> истинный север», набирается по GPS-курсу в движении
+    var biasLearned;  // поправка обновлена в этой сессии (стоит сохранить)
+    var useCompass;   // стоя вращать карту компасом (Off — держать последний курс GPS)
+    var moving;       // состояние «в движении» (с гистерезисом)
+    var slowSince;    // System.getTimer(), с какого момента медленно/нет GPS; null — нет
     var hasFix;
     var fixTime;
     var zoom;         // 0..2, по умолчанию средний
@@ -36,6 +42,10 @@ class NavState {
         zoom = 1;
         headingRad = null;
         headingBias = 0.0;
+        biasLearned = false;
+        useCompass = true;
+        moving = false;
+        slowSince = null;
         arrived = false;
         vibedArrival = false;
         paused = false;
@@ -102,6 +112,56 @@ class NavState {
         var endDistance = route.segMeters([meLatMicro, meLonMicro], route.pts[route.size() - 1]);
         return total > 0 && remaining <= threshold && cross <= Cfg.ARRIVE_M &&
             endDistance <= Cfg.ARRIVE_M;
+    }
+
+    // Обновление курса за тик.
+    // gpsHeading — курс GNSS, рад (или null); spd — м/с; gpsOk — курс GPS свежий и пригоден;
+    // compass — курс компаса, рад (или null); nowMs — System.getTimer().
+    // В движении — только GPS (компас на запястье при ходьбе врёт от размаха руки); краткий
+    // провал GPS/замедление — курс держим. Стоя — компас + поправка, выученная в движении
+    // (или держим последний курс, если компас выключен).
+    function updateHeading(gpsHeading, spd, gpsOk, compass, nowMs) {
+        var gpsUsable = gpsOk && gpsHeading != null;
+        if (gpsUsable && spd >= Cfg.MOVE_ENTER_SPD) {
+            moving = true;
+            slowSince = null;
+        } else if (moving) {
+            if (gpsUsable && spd >= Cfg.MOVE_EXIT_SPD) {
+                slowSince = null;
+            } else {
+                if (slowSince == null) { slowSince = nowMs; }
+                if (nowMs - slowSince >= Cfg.MOVE_EXIT_MS) { moving = false; slowSince = null; }
+            }
+        }
+
+        var target = null;
+        if (moving) {
+            if (gpsUsable && spd >= Cfg.MOVE_EXIT_SPD) {
+                target = gpsHeading;
+                if (compass != null && spd >= Cfg.MOVE_ENTER_SPD) {
+                    var d = normRad(gpsHeading - compass);
+                    headingBias = normRad(headingBias + Cfg.BIAS_SMOOTH * normRad(d - headingBias));
+                    biasLearned = true;
+                }
+            }
+        } else if (useCompass && compass != null) {
+            target = compass + headingBias;
+        }
+
+        if (target != null) {
+            if (headingRad == null) { headingRad = normRad(target); }
+            else { headingRad = normRad(headingRad + Cfg.HEAD_SMOOTH * normRad(target - headingRad)); }
+        }
+    }
+
+    // Нормировка угла (рад) в [−π, π] — без циклов (исключаем риск watchdog).
+    function normRad(a) {
+        var twoPi = 2.0 * Math.PI;
+        var k = ((a + Math.PI) / twoPi).toNumber(); // усечение к нулю
+        var x = a - k * twoPi;
+        if (x > Math.PI) { x -= twoPi; }
+        else if (x < -Math.PI) { x += twoPi; }
+        return x;
     }
 
     // Эффективный курс: GPS, иначе начальный пеленг маршрута.

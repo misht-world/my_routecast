@@ -34,6 +34,56 @@ function arrivalRequiresGpsEndpointAndUnpaused(logger) {
     return true;
 }
 
+function angleErr(a, b) {
+    var e = a - b;
+    if (e < 0) { e = -e; }
+    return e;
+}
+
+(:test)
+function headingIgnoresCompassWhileWalking(logger) {
+    var ns = new NavState(new RouteModel(eastRoute(), []));
+    var east = Math.PI / 2;
+    ns.updateHeading(east, 1.3, true, 0.0, 1000); // идём на восток, компас врёт (север)
+    Test.assert(ns.moving);
+    // скорость проседает ниже порога входа, но выше порога выхода — компас не подмешиваем
+    for (var t = 1200; t <= 3000; t += 200) { ns.updateHeading(east, 0.8, true, 0.0, t); }
+    Test.assert(ns.moving);
+    Test.assert(angleErr(ns.headingRad, east) < 0.01);
+    // краткий провал GPS — курс держим, а не уходим на компас
+    for (var u = 3200; u <= 4400; u += 200) { ns.updateHeading(null, 0.0, false, 0.0, u); }
+    Test.assert(ns.moving);
+    Test.assert(angleErr(ns.headingRad, east) < 0.01);
+    return true;
+}
+
+(:test)
+function stationaryUsesCompassPlusLearnedBias(logger) {
+    var ns = new NavState(new RouteModel(eastRoute(), []));
+    var east = Math.PI / 2;
+    var off = 30.0 * Math.PI / 180.0; // компас показывает на 30° меньше истинного
+    var t = 0;
+    for (var i = 0; i < 40; i++) { t += 200; ns.updateHeading(east, 1.4, true, east - off, t); }
+    Test.assert(ns.biasLearned);
+    for (var j = 0; j < 30; j++) { t += 200; ns.updateHeading(null, 0.0, true, east - off, t); }
+    Test.assert(!ns.moving);
+    Test.assert(angleErr(ns.headingRad, east) < 0.05);
+    return true;
+}
+
+(:test)
+function compassOffHoldsLastGpsHeading(logger) {
+    var ns = new NavState(new RouteModel(eastRoute(), []));
+    ns.useCompass = false;
+    var east = Math.PI / 2;
+    var t = 0;
+    for (var i = 0; i < 10; i++) { t += 200; ns.updateHeading(east, 1.4, true, 0.0, t); }
+    for (var j = 0; j < 30; j++) { t += 200; ns.updateHeading(null, 0.0, true, 0.0, t); }
+    Test.assert(!ns.moving);
+    Test.assert(angleErr(ns.headingRad, east) < 0.01);
+    return true;
+}
+
 // Тесты математики следования RouteModel (Gate 2). Маршрут в микроградусах.
 
 // прямой маршрут на восток: 5 точек по 0.001° долготы на широте 50°
