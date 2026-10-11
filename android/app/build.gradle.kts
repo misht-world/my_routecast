@@ -107,3 +107,20 @@ val verifyContract by tasks.registering {
     }
 }
 tasks.named("preBuild") { dependsOn(verifyContract) }
+
+// Release-артефакты публикуются: в них не должно быть приватного трека разработчика.
+// real_route.gpx попадает в APK, MockFeeder.mc — в .prg часов (собирается тем же процессом).
+val verifyReleaseClean by tasks.registering {
+    doLast {
+        val repo = rootProject.projectDir.parentFile
+        val present = listOf(
+            "android/app/src/main/assets/real_route.gpx",
+            "watch/source/MockFeeder.mc"
+        ).filter { repo.resolve(it).exists() }
+        check(present.isEmpty()) {
+            "Private data present, move it out before a release build: ${present.joinToString()}"
+        }
+    }
+}
+tasks.matching { it.name.startsWith("pre") && it.name.endsWith("ReleaseBuild") }
+    .configureEach { dependsOn(verifyReleaseClean) }
