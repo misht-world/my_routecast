@@ -22,9 +22,8 @@ Android versionCode: 10; часы: v0.6.0; протокол: v2 (без изме
 - Логика курса вынесена в NavState.updateHeading; часы: 19 unit-тестов в симуляторе (+4).
 - README: явный отказ от ответственности (Disclaimer) и пометка о непричастности к Garmin
   и Organic Maps.
-- Сборка release (verifyReleaseClean) падает, если в проекте лежат приватные данные
-  разработчика (`assets/real_route.gpx`, `watch/source/MockFeeder.mc`). Причина: v0.5.2 `.prg`
-  был собран вместе с регенерированным MockFeeder (реальные координаты трека).
+- Сборка release (verifyReleaseClean) падает, если в проекте лежат локальные тестовые данные
+  разработчика (`assets/real_route.gpx`, `watch/source/MockFeeder.mc`).
 
 ## 0.5.2 — 2026-10-10
 
