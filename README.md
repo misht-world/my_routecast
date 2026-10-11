@@ -13,6 +13,10 @@ Current development version: **0.6.0**, protocol **v2**. See [CHANGELOG.md](CHAN
 for version history, [VERSIONING.md](VERSIONING.md) for release rules, and
 [RELIABILITY.md](RELIABILITY.md) for verified fixes and remaining reliability risks.
 
+> **Use at your own risk.** RouteCast is an unofficial hobby project provided "as is", without
+> any warranty. The author accepts no responsibility for any consequences of using it. It is
+> not a safety or emergency navigation device — see [Disclaimer](#disclaimer).
+
 ---
 
 ## Why this exists
@@ -127,8 +131,25 @@ my_routecast/
 └── watch/            # Connect IQ app (Monkey C): receive → render line + pseudo-TBT
 ```
 
+## Disclaimer
+
+RouteCast is an unofficial, non-commercial hobby project. **You use it entirely at your own
+risk.** The software is provided "as is", without warranty of any kind, and the author accepts
+no responsibility or liability for any loss, damage or injury arising from its use — including
+getting lost, wrong or missed directions, inaccurate GPS or compass readings, a drained battery,
+or damage to your watch, phone or data.
+
+- It is **not** a safety, emergency or professional navigation device. Do not rely on it as your
+  only means of navigation: carry a proper map or a charged phone, check your route beforehand
+  and use common sense outdoors.
+- Routes, maneuver cues and off-route alerts are approximations and can be wrong or late.
+- Sideloading apps onto your devices is your own decision and responsibility.
+
+Garmin, Instinct and Connect IQ are trademarks of Garmin Ltd. or its subsidiaries; Organic Maps
+belongs to its respective owners. This project is not affiliated with, endorsed or supported by
+Garmin or Organic Maps.
+
 ## License
 
-[MIT](LICENSE) — free to use, modify and redistribute, keeping the copyright notice. Provided
-"as is", with no warranty; this is an offline hobby project, not a substitute for proper
-navigation — use at your own risk.
+[MIT](LICENSE) — free to use, modify and redistribute, keeping the copyright notice. The
+software is provided "as is", without warranty — see [Disclaimer](#disclaimer).
